@@ -834,6 +834,8 @@ static void convert_datum(void *dest, void *src, int dest_fmt, int src_fmt)
 
 static void *convert_data(void *src, int n, int dest_fmt, int src_fmt)
 {
+	if (src_fmt == IIO_TYPE_FLOAT)
+		IIO_DEBUG("first float sample = %g\n", *(float*)src);
 	size_t src_width = iio_type_size(src_fmt);
 	size_t dest_width = iio_type_size(dest_fmt);
 	IIO_DEBUG("converting %d samples from %s to %s\n", n, iio_strtyp(src_fmt), iio_strtyp(dest_fmt));
@@ -848,6 +850,8 @@ static void *convert_data(void *src, int n, int dest_fmt, int src_fmt)
 		convert_datum(to, from, dest_fmt, src_fmt);
 	}
 	xfree(src);
+	if (dest_fmt == IIO_TYPE_INT16)
+		IIO_DEBUG("first short sample = %d\n", *(int16_t*)r);
 	return r;
 }
 
@@ -2342,9 +2346,7 @@ void *iio_read_image(const char *fname, int *w, int *h, int desired_sample_type)
 	}
 	*w = x->sizes[0];
 	*h = x->sizes[1];
-	//iio_save_image_default("/tmp/iioo_before", x);
 	iio_convert_samples(x, desired_sample_type);
-	//iio_save_image_default("/tmp/iioo_after", x);
 	return x->data;
 }
 
@@ -2411,9 +2413,7 @@ uint8_t (*iio_read_image_uint8_rgb(const char *fname, int *w, int *h))[3]
 		error("non-color image");
 	*w = x->sizes[0];
 	*h = x->sizes[1];
-	//iio_save_image_default("/tmp/iioo_before", x);
 	iio_convert_samples(x, IIO_TYPE_UINT8);
-	//iio_save_image_default("/tmp/iioo_after", x);
 	return x->data;
 }
 
@@ -2470,9 +2470,7 @@ uint8_t ***iio_read_image_uint8_matrix_vec(const char *fname,
 	*h = x->sizes[1];
 	*pd = x->pixel_dimension;
 	fprintf(stderr, "matrix_vec pd = %d\n", *pd);
-	//iio_save_image_default("/tmp/iioo_before", x);
 	iio_convert_samples(x, IIO_TYPE_UINT8);
-	//iio_save_image_default("/tmp/iioo_after", x);
 	return wrap_2dmatrix_around_data(x->data, *w, *h, *pd);
 }
 
@@ -2510,10 +2508,8 @@ uint8_t **iio_read_image_uint8_matrix(const char *fname, int *w, int *h)
 		error("non-scalar image");
 	*w = x->sizes[0];
 	*h = x->sizes[1];
-	//iio_save_image_default("/tmp/iioo_before", x);
 	iio_convert_samples(x, IIO_TYPE_UINT8);
 	return wrap_2dmatrix_around_data(x->data, *w, *h, 1);
-	//iio_save_image_default("/tmp/iioo_after", x);
 	//return x->data;
 
 	// WRONG!:
@@ -2720,7 +2716,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				void *old_data = x->data;
 				x->data = xmalloc(nsamp*sizeof(float));
 				memcpy(x->data, old_data, nsamp*sizeof(float));
-				iio_convert_samples(x, IIO_TYPE_INT16);
+				iio_convert_samples(x, IIO_TYPE_UINT8);
 				iio_save_image_default(filename, x);
 				xfree(x->data);
 				x->data = old_data;
@@ -2740,7 +2736,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				void *old_data = x->data;
 				x->data = xmalloc(nsamp*sizeof(float));
 				memcpy(x->data, old_data, nsamp*sizeof(float));
-				iio_convert_samples(x, IIO_TYPE_INT16);
+				iio_convert_samples(x, IIO_TYPE_UINT8);
 				iio_save_image_default(filename, x);
 				xfree(x->data);
 				x->data = old_data;
