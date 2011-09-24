@@ -22,6 +22,8 @@
 
 // #includes {{{1
 
+#define _POSIX_C_SOURCE 200809L
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -50,7 +52,7 @@
 #  define I_CAN_HAS_FMEMOPEN 1
 #endif
 
-#ifdef _XOPEN_SOURCE
+#ifdef _POSIX_C_SOURCE
 #  define I_CAN_HAS_MKSTEMP 1
 #endif
 
@@ -2079,7 +2081,9 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
 		TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, 1, caca);
 		break;
-	default: error("bad pixel dimension %d for TIFF", x->pixel_dimension);
+	default:
+		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+		//error("bad pixel dimension %d for TIFF", x->pixel_dimension);
 	}
 	/////TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 	//TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
@@ -2545,7 +2549,7 @@ void *iio_read_nd_image_as_stored(char *fname,
 {
 	struct iio_image x[1];
 	int r = read_image(x, fname);
-	if (!r) return rerror("");
+	if (r) return rerror("so much fail");
 	*dimension = x->dimension;
 	FORI(x->dimension) sizes[i] = x->sizes[i];
 	*samples_per_pixel = x->pixel_dimension;
@@ -2561,7 +2565,7 @@ void *iio_read_nd_image_as_desired(char *fname,
 {
 	struct iio_image x[1];
 	int r = read_image(x, fname);
-	if (!r) return rerror("");
+	if (r) return rerror("so much fail");
 	int desired_type = iio_type_id(desired_sample_size,
 				desired_ieeefp_samples, desired_signed_samples);
 	iio_convert_samples(x, desired_type);
@@ -2803,8 +2807,9 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 			fwrite(data, w*h, 1, f);
 		}
 	} else
-		error("\n\n\nThis particular data format can not yet be saved."
-				"\nPlease, ask enric.\n");
+			iio_save_image_as_tiff_smarter(filename, x);
+	//	error("\n\n\nThis particular data format can not yet be saved."
+	//			"\nPlease, ask enric.\n");
 	xfclose(f);
 }
 
