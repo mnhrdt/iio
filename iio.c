@@ -1839,15 +1839,15 @@ static int read_beheaded_pfm(struct iio_image *x,
 {
 	assert(4 == sizeof(float));
 	assert(nheader == 2);
-	assert('f' == tolower(header[2]));
-	int w, h, pd = isupper(header[2]) ? 3 : 1;
+	assert('f' == tolower(header[1]));
+	int w, h, pd = isupper(header[1]) ? 3 : 1;
 	float scale;
 	if (!isspace(pilla_caracter_segur(f))) return -1;
 	if (3 != fscanf(f, "%d %d\n%g", &w, &h, &scale)) return -2;
 	if (!isspace(pilla_caracter_segur(f))) return -3;
 	float *data = xmalloc(w*h*4*pd);
 	if (1 != fread(data, w*h*4*pd, 1, f)) return -4;
-	if (scale < 0) switch_4endianness(data, w*h*pd);
+	//if (scale < 0) switch_4endianness(data, w*h*pd);
 
 	x->dimension = 2;
 	x->sizes[0] = w;
