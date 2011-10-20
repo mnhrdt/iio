@@ -250,7 +250,7 @@ static void xfree(void *p)
 	free(p);
 }
 
-static
+static const
 char *global_variable_containing_the_name_of_the_last_opened_file = NULL;
 
 static FILE *xfopen(const char *s, const char *p)
@@ -275,7 +275,8 @@ static FILE *xfopen(const char *s, const char *p)
 	if (f == NULL)
 		error("can not open file \"%s\" in mode \"%s\"",// (%s)",
 				s, p);//, strerror(errno));
-	global_variable_containing_the_name_of_the_last_opened_file = (char*)s;
+	//global_variable_containing_the_name_of_the_last_opened_file = (char*)s;
+	global_variable_containing_the_name_of_the_last_opened_file = s;
 	return f;
 }
 
@@ -1387,7 +1388,7 @@ static int read_beheaded_jpeg(struct iio_image *x,
 #ifdef I_CAN_HAS_LIBTIFF
 #  include <tiffio.h>
 
-static int read_whole_tiff(struct iio_image *x, char *filename)
+static int read_whole_tiff(struct iio_image *x, const char *filename)
 {
 	// tries to read data in the correct format (via scanlines)
 	// if it fails, it tries to read ABGR data
@@ -2372,6 +2373,23 @@ float *iio_read_image_float_vec(const char *fname, int *w, int *h, int *pd)
 }
 
 // API 2D
+double *iio_read_image_double_vec(const char *fname, int *w, int *h, int *pd)
+{
+	struct iio_image x[1];
+	int r = read_image(x, fname);
+	if (r) return rerror("could not read image");
+	if (x->dimension != 2) {
+		x->dimension = 2;
+		//error("non 2d image");
+	}
+	*w = x->sizes[0];
+	*h = x->sizes[1];
+	*pd = x->pixel_dimension;
+	iio_convert_samples(x, IIO_TYPE_DOUBLE);
+	return x->data;
+}
+
+// API 2D
 uint8_t *iio_read_image_uint8_vec(const char *fname, int *w, int *h, int *pd)
 {
 	struct iio_image x[1];
@@ -2599,6 +2617,26 @@ float *iio_read_image_float(const char *fname, int *w, int *h)
 	*w = x->sizes[0];
 	*h = x->sizes[1];
 	iio_convert_samples(x, IIO_TYPE_FLOAT);
+	return x->data;
+}
+
+// API 2D
+double *iio_read_image_double(const char *fname, int *w, int *h)
+{
+	struct iio_image x[1];
+	int r = read_image(x, fname);
+	if (r) return rerror("could not read image");
+	if (x->dimension != 2) {
+		x->dimension = 2;
+		return rerror("non 2d image");
+	}
+	if (x->pixel_dimension == 3)
+		iio_hacky_uncolorize(x);
+	if (x->pixel_dimension != 1)
+		return rerror("non-scalar image");
+	*w = x->sizes[0];
+	*h = x->sizes[1];
+	iio_convert_samples(x, IIO_TYPE_DOUBLE);
 	return x->data;
 }
 
@@ -2852,6 +2890,20 @@ void iio_save_image_float_vec(char *filename, float *data,
 	iio_save_image_default(filename, x);
 }
 
+void iio_save_image_double_vec(char *filename, double *data,
+		int w, int h, int pd)
+{
+	struct iio_image x[1];
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = pd;
+	x->type = IIO_TYPE_DOUBLE;
+	x->data = data;
+	x->contiguous_data = false;
+	iio_save_image_default(filename, x);
+}
+
 void iio_save_image_float(char *filename, float *data, int w, int h)
 {
 	struct iio_image x[1];
@@ -2860,6 +2912,19 @@ void iio_save_image_float(char *filename, float *data, int w, int h)
 	x->sizes[1] = h;
 	x->pixel_dimension = 1;
 	x->type = IIO_TYPE_FLOAT;
+	x->data = data;
+	x->contiguous_data = false;
+	iio_save_image_default(filename, x);
+}
+
+void iio_save_image_double(char *filename, double *data, int w, int h)
+{
+	struct iio_image x[1];
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 1;
+	x->type = IIO_TYPE_DOUBLE;
 	x->data = data;
 	x->contiguous_data = false;
 	iio_save_image_default(filename, x);
