@@ -2708,7 +2708,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 {
 	int typ = normalize_type(x->type);
 	if (x->dimension != 2) error("de moment només escrivim 2D");
-	static bool silly = true;
+	//static bool silly = true;
 	if (x->pixel_dimension != 1 && x->pixel_dimension != 3 && x->pixel_dimension != 4)
 	{
 		iio_save_image_as_tiff_smarter(filename, x);
@@ -2726,7 +2726,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		memcpy(x->data, old_data, nsamp*sizeof(float));
 		iio_convert_samples(x, IIO_TYPE_UINT8);
 		//silly=false;
-		iio_save_image_default(filename, x);
+		iio_save_image_default(filename, x); // recursive call
 		//silly=true;
 		xfree(x->data);
 		x->data = old_data;
@@ -2759,7 +2759,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				x->data = xmalloc(nsamp*sizeof(float));
 				memcpy(x->data, old_data, nsamp*sizeof(float));
 				iio_convert_samples(x, IIO_TYPE_UINT8);
-				iio_save_image_default(filename, x);
+				iio_save_image_default(filename, x);//recursive
 				xfree(x->data);
 				x->data = old_data;
 				return;
@@ -2772,6 +2772,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		if (false
 				|| string_suffix(filename, ".png")
 				|| string_suffix(filename, ".PNG")
+				|| (typ==IIO_TYPE_UINT8&&x->pixel_dimension==4)
 		   )
 		{
 			if (typ == IIO_TYPE_FLOAT) {
@@ -2779,7 +2780,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				x->data = xmalloc(nsamp*sizeof(float));
 				memcpy(x->data, old_data, nsamp*sizeof(float));
 				iio_convert_samples(x, IIO_TYPE_UINT8);
-				iio_save_image_default(filename, x);
+				iio_save_image_default(filename, x);//recursive
 				xfree(x->data);
 				x->data = old_data;
 				return;
