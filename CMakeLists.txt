@@ -2,12 +2,23 @@ cmake_minimum_required (VERSION 2.6) #specify the required version of cmake
 project (IIO)                        #give a name to the project/solution
 
 # ADD LOCAL PATH TO SEARCH MODULES
-LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_PREFIX}")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+list (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_PREFIX}")
+set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
 
-SET (LIBS "")
 
+# SETUP A MAKE CLEAN TO CLEAN EVERYTHING
+#
+#
+set_directory_properties (PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES 
+   "iioConfig.cmake;CMakeCache.txt;CMakeFiles;Makefile;cmake_install.cmake;iio;iion")
+
+
+# LIBRARIES
+#
+#
+
+set (LIBS "")
 
 # IF AVAILABLE USE OPENEXR
 FIND_PACKAGE(OPENEXR) 
@@ -47,21 +58,21 @@ ENDIF()
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -std=c99 -funroll-loops -Wno-unused")
 MESSAGE( "FLAGS: ${CMAKE_C_FLAGS}")
 SET(IIO_LIB_SRCS iio.h iio.c)       #Define a variable that contains files of the lib
-ADD_LIBRARY(IIOLIB ${IIO_LIB_SRCS}) #Define that those files create the lib FooLib
+ADD_LIBRARY(iio.o ${IIO_LIB_SRCS}) #Define that those files create the lib FooLib
 
 
 # EXAMPLE
 add_executable (iio iio_test.c)
-target_link_libraries(iio IIOLIB ${LIBS})
+target_link_libraries(iio iio.o ${LIBS})
 
 add_executable (iion iio_test_named.c)
-target_link_libraries(iion IIOLIB ${LIBS})
+target_link_libraries(iion iio.o ${LIBS})
 
 
 ##setup Config.cmake
 SET(PARAMETROS_BASE_DIR "${PROJECT_SOURCE_DIR}")
 set(PARAMETROS_CMAKE_DIR "${PROJECT_BINARY_DIR}")
-set(IIO_LIBS ${LIBS} ${PROJECT_SOURCE_DIR}/libIIOLIB.a)
+set(IIO_LIBS ${LIBS} ${PROJECT_SOURCE_DIR}/iio.o)
 set(IIO_INCLUDE ${PROJECT_SOURCE_DIR})
 MESSAGE( "${PROJECT_BINARY_DIR}" )
 MESSAGE( "${PROJECT_SOURCE_DIR}" )

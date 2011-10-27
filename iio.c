@@ -2773,6 +2773,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				|| string_suffix(filename, ".png")
 				|| string_suffix(filename, ".PNG")
 				|| (typ==IIO_TYPE_UINT8&&x->pixel_dimension==4)
+				|| (typ==IIO_TYPE_FLOAT&&x->pixel_dimension==4)
 		   )
 		{
 			if (typ == IIO_TYPE_FLOAT) {
