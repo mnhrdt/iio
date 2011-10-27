@@ -100,6 +100,8 @@
 #define IIO_FORMAT_GIF 16
 #define IIO_FORMAT_XPM 17
 #define IIO_FORMAT_RAFA 18
+#define IIO_FORMAT_FLO 19
+#define IIO_FORMAT_JUV 20
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -1860,6 +1862,25 @@ static int read_beheaded_pfm(struct iio_image *x,
 	return 0;
 }
 
+// FLO reader {{{2
+static int read_beheaded_flo(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	int w = rim_getint(f, false);
+	int h = rim_getint(f, false);
+	float *data = xmalloc(w*h*2*sizeof*data);
+	if (1 != fread(data, w*h*4*2, 1, f)) return -1;
+
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 2;
+	x->type = IIO_TYPE_FLOAT;
+	x->contiguous_data = false;
+	x->data = data;
+	return 0;
+}
+
 // EXR reader {{{2
 
 #ifdef I_CAN_HAS_LIBEXR
@@ -2198,6 +2219,9 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 		return IIO_FORMAT_EXR;
 #endif//I_CAN_HAS_LIBEXR
 
+	if (b[0]=='P' && b[1]=='I' && b[2]=='E' && b[3]=='H')
+		return IIO_FORMAT_FLO;
+
 	b[4] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[5] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[6] = add_to_header_buffer(f, b, nbuf, bufmax);
@@ -2227,6 +2251,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_QNM:   return read_beheaded_qnm (x, f, h, hn);
 	case IIO_FORMAT_RIM:   return read_beheaded_rim (x, f, h, hn);
 	case IIO_FORMAT_PFM:   return read_beheaded_pfm (x, f, h, hn);
+	case IIO_FORMAT_FLO:   return read_beheaded_flo (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
 	case IIO_FORMAT_PNG:   return read_beheaded_png (x, f, h, hn);
@@ -2243,6 +2268,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 #ifdef I_CAN_HAS_LIBEXR
 	case IIO_FORMAT_EXR:   return read_beheaded_exr (x, f, h, hn);
 #endif
+
 		/*
 	case IIO_FORMAT_BMP:   return read_beheaded_bmp (x, f, h, hn);
 	case IIO_FORMAT_JP2:   return read_beheaded_jp2 (x, f, h, hn);
@@ -2256,7 +2282,13 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_XPM:   return read_beheaded_xpm (x, f, h, hn);
 	case IIO_FORMAT_RAFA:   return read_beheaded_rafa (x, f, h, hn);
 	*/
+
+#ifdef I_CAN_HAS_WHATEVER
 	case IIO_FORMAT_UNRECOGNIZED: return read_beheaded_whatever(x,f,h,hn);
+#else
+	case IIO_FORMAT_UNRECOGNIZED: return -2;
+#endif
+
 	default:              return -17;
 	}
 }
