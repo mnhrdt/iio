@@ -102,6 +102,7 @@
 #define IIO_FORMAT_RAFA 18
 #define IIO_FORMAT_FLO 19
 #define IIO_FORMAT_JUV 20
+#define IIO_FORMAT_LUM 21
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -1881,6 +1882,36 @@ static int read_beheaded_flo(struct iio_image *x,
 	return 0;
 }
 
+// LUM reader {{{2
+
+static int lum_pickshort(char *ss)
+{
+	uint8_t *s = (uint8_t*)ss;
+	int a = s[0];
+	int b = s[1];
+	return 0x100*a + b;
+}
+
+static int read_beheaded_lum(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	int w = lum_pickshort(header+2);
+	int h = lum_pickshort(header+6);
+	while (nheader++ < 0xf94)
+		pilla_caracter_segur(f);
+	float *data = xmalloc(w*h*sizeof*data);
+	if (1 != fread(data, w*h*4, 1, f)) return -1;
+	switch_4endianness(data, w*h);
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 1;
+	x->type = IIO_TYPE_FLOAT;
+	x->contiguous_data = false;
+	x->data = data;
+	return 0;
+}
+
 // EXR reader {{{2
 
 #ifdef I_CAN_HAS_LIBEXR
@@ -2236,6 +2267,14 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 	}
 #endif//I_CAN_HAS_LIBPNG
 
+	b[8] = add_to_header_buffer(f, b, nbuf, bufmax);
+	b[9] = add_to_header_buffer(f, b, nbuf, bufmax);
+	b[10] = add_to_header_buffer(f, b, nbuf, bufmax);
+	b[11] = add_to_header_buffer(f, b, nbuf, bufmax);
+
+	if (b[8]=='F'&&b[9]=='L'&&b[10]=='O'&&b[11]=='A')
+		return IIO_FORMAT_LUM;
+
 	return IIO_FORMAT_UNRECOGNIZED;
 }
 
@@ -2252,6 +2291,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_RIM:   return read_beheaded_rim (x, f, h, hn);
 	case IIO_FORMAT_PFM:   return read_beheaded_pfm (x, f, h, hn);
 	case IIO_FORMAT_FLO:   return read_beheaded_flo (x, f, h, hn);
+	case IIO_FORMAT_LUM:   return read_beheaded_lum (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
 	case IIO_FORMAT_PNG:   return read_beheaded_png (x, f, h, hn);
@@ -2400,6 +2440,25 @@ float *iio_read_image_float_vec(const char *fname, int *w, int *h, int *pd)
 	*w = x->sizes[0];
 	*h = x->sizes[1];
 	*pd = x->pixel_dimension;
+	iio_convert_samples(x, IIO_TYPE_FLOAT);
+	return x->data;
+}
+
+// API 2D
+float *iio_read_image_float_rgb(const char *fname, int *w, int *h)
+{
+	struct iio_image x[1];
+	int r = read_image(x, fname);
+	if (r) return rerror("could not read image");
+	if (x->dimension != 2) {
+		x->dimension = 2;
+		return rerror("non 2d image");
+	}
+	if (x->pixel_dimension != 3) {
+		iio_hacky_colorize(x, 3);
+	}
+	*w = x->sizes[0];
+	*h = x->sizes[1];
 	iio_convert_samples(x, IIO_TYPE_FLOAT);
 	return x->data;
 }
