@@ -1882,6 +1882,33 @@ static int read_beheaded_flo(struct iio_image *x,
 	return 0;
 }
 
+// JUV reader {{{2
+static int read_beheaded_juv(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	char buf[255];
+	FORI(nheader) buf[i] = header[i];
+	FORI(255-nheader) buf[i+nheader] = pilla_caracter_segur(f);
+	int w, h, r = sscanf(buf, "#UV {\n dimx %d dimy %d\n}\n", &w, &h);
+	if (r != 2) return -1;
+	size_t sf = sizeof(float);
+	float *u = xmalloc(w*h*sf); r = fread(u, w*h, sf, f); if(r!=w*h) goto e;
+	float *v = xmalloc(w*h*sf); r = fread(v, w*h, sf, f); if(r!=w*h) goto e;
+	float *uv = xmalloc(2*w*h*sf);
+	FORI(w*h) uv[2*i] = u[i];
+	FORI(w*h) uv[2*i+1] = v[i];
+	xfree(u); xfree(v);
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 2;
+	x->type = IIO_TYPE_FLOAT;
+	x->contiguous_data = false;
+	x->data = uv;
+	return 0;
+e:	return -2;
+}
+
 // LUM reader {{{2
 
 static int lum_pickshort(char *ss)
@@ -2250,6 +2277,9 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 		return IIO_FORMAT_EXR;
 #endif//I_CAN_HAS_LIBEXR
 
+	if (b[0]=='#' && b[1]=='U' && b[2]=='V')
+		return IIO_FORMAT_JUV;
+
 	if (b[0]=='P' && b[1]=='I' && b[2]=='E' && b[3]=='H')
 		return IIO_FORMAT_FLO;
 
@@ -2291,6 +2321,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_RIM:   return read_beheaded_rim (x, f, h, hn);
 	case IIO_FORMAT_PFM:   return read_beheaded_pfm (x, f, h, hn);
 	case IIO_FORMAT_FLO:   return read_beheaded_flo (x, f, h, hn);
+	case IIO_FORMAT_JUV:   return read_beheaded_juv (x, f, h, hn);
 	case IIO_FORMAT_LUM:   return read_beheaded_lum (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
