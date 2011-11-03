@@ -100,6 +100,9 @@
 #define IIO_FORMAT_GIF 16
 #define IIO_FORMAT_XPM 17
 #define IIO_FORMAT_RAFA 18
+#define IIO_FORMAT_FLO 19
+#define IIO_FORMAT_JUV 20
+#define IIO_FORMAT_LUM 21
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -1860,6 +1863,82 @@ static int read_beheaded_pfm(struct iio_image *x,
 	return 0;
 }
 
+// FLO reader {{{2
+static int read_beheaded_flo(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	int w = rim_getint(f, false);
+	int h = rim_getint(f, false);
+	float *data = xmalloc(w*h*2*sizeof*data);
+	if (1 != fread(data, w*h*4*2, 1, f)) return -1;
+
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 2;
+	x->type = IIO_TYPE_FLOAT;
+	x->contiguous_data = false;
+	x->data = data;
+	return 0;
+}
+
+// JUV reader {{{2
+static int read_beheaded_juv(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	char buf[255];
+	FORI(nheader) buf[i] = header[i];
+	FORI(255-nheader) buf[i+nheader] = pilla_caracter_segur(f);
+	int w, h, r = sscanf(buf, "#UV {\n dimx %d dimy %d\n}\n", &w, &h);
+	if (r != 2) return -1;
+	size_t sf = sizeof(float);
+	float *u = xmalloc(w*h*sf); r = fread(u, w*h, sf, f); if(r!=w*h) goto e;
+	float *v = xmalloc(w*h*sf); r = fread(v, w*h, sf, f); if(r!=w*h) goto e;
+	float *uv = xmalloc(2*w*h*sf);
+	FORI(w*h) uv[2*i] = u[i];
+	FORI(w*h) uv[2*i+1] = v[i];
+	xfree(u); xfree(v);
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 2;
+	x->type = IIO_TYPE_FLOAT;
+	x->contiguous_data = false;
+	x->data = uv;
+	return 0;
+e:	return -2;
+}
+
+// LUM reader {{{2
+
+static int lum_pickshort(char *ss)
+{
+	uint8_t *s = (uint8_t*)ss;
+	int a = s[0];
+	int b = s[1];
+	return 0x100*a + b;
+}
+
+static int read_beheaded_lum(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	int w = lum_pickshort(header+2);
+	int h = lum_pickshort(header+6);
+	while (nheader++ < 0xf94)
+		pilla_caracter_segur(f);
+	float *data = xmalloc(w*h*sizeof*data);
+	if (1 != fread(data, w*h*4, 1, f)) return -1;
+	switch_4endianness(data, w*h);
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 1;
+	x->type = IIO_TYPE_FLOAT;
+	x->contiguous_data = false;
+	x->data = data;
+	return 0;
+}
+
 // EXR reader {{{2
 
 #ifdef I_CAN_HAS_LIBEXR
@@ -2198,6 +2277,12 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 		return IIO_FORMAT_EXR;
 #endif//I_CAN_HAS_LIBEXR
 
+	if (b[0]=='#' && b[1]=='U' && b[2]=='V')
+		return IIO_FORMAT_JUV;
+
+	if (b[0]=='P' && b[1]=='I' && b[2]=='E' && b[3]=='H')
+		return IIO_FORMAT_FLO;
+
 	b[4] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[5] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[6] = add_to_header_buffer(f, b, nbuf, bufmax);
@@ -2211,6 +2296,14 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 			return IIO_FORMAT_JPEG;
 	}
 #endif//I_CAN_HAS_LIBPNG
+
+	b[8] = add_to_header_buffer(f, b, nbuf, bufmax);
+	b[9] = add_to_header_buffer(f, b, nbuf, bufmax);
+	b[10] = add_to_header_buffer(f, b, nbuf, bufmax);
+	b[11] = add_to_header_buffer(f, b, nbuf, bufmax);
+
+	if (b[8]=='F'&&b[9]=='L'&&b[10]=='O'&&b[11]=='A')
+		return IIO_FORMAT_LUM;
 
 	return IIO_FORMAT_UNRECOGNIZED;
 }
@@ -2227,6 +2320,9 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_QNM:   return read_beheaded_qnm (x, f, h, hn);
 	case IIO_FORMAT_RIM:   return read_beheaded_rim (x, f, h, hn);
 	case IIO_FORMAT_PFM:   return read_beheaded_pfm (x, f, h, hn);
+	case IIO_FORMAT_FLO:   return read_beheaded_flo (x, f, h, hn);
+	case IIO_FORMAT_JUV:   return read_beheaded_juv (x, f, h, hn);
+	case IIO_FORMAT_LUM:   return read_beheaded_lum (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
 	case IIO_FORMAT_PNG:   return read_beheaded_png (x, f, h, hn);
@@ -2243,6 +2339,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 #ifdef I_CAN_HAS_LIBEXR
 	case IIO_FORMAT_EXR:   return read_beheaded_exr (x, f, h, hn);
 #endif
+
 		/*
 	case IIO_FORMAT_BMP:   return read_beheaded_bmp (x, f, h, hn);
 	case IIO_FORMAT_JP2:   return read_beheaded_jp2 (x, f, h, hn);
@@ -2256,7 +2353,13 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_XPM:   return read_beheaded_xpm (x, f, h, hn);
 	case IIO_FORMAT_RAFA:   return read_beheaded_rafa (x, f, h, hn);
 	*/
+
+#ifdef I_CAN_HAS_WHATEVER
 	case IIO_FORMAT_UNRECOGNIZED: return read_beheaded_whatever(x,f,h,hn);
+#else
+	case IIO_FORMAT_UNRECOGNIZED: return -2;
+#endif
+
 	default:              return -17;
 	}
 }
@@ -2368,6 +2471,25 @@ float *iio_read_image_float_vec(const char *fname, int *w, int *h, int *pd)
 	*w = x->sizes[0];
 	*h = x->sizes[1];
 	*pd = x->pixel_dimension;
+	iio_convert_samples(x, IIO_TYPE_FLOAT);
+	return x->data;
+}
+
+// API 2D
+float *iio_read_image_float_rgb(const char *fname, int *w, int *h)
+{
+	struct iio_image x[1];
+	int r = read_image(x, fname);
+	if (r) return rerror("could not read image");
+	if (x->dimension != 2) {
+		x->dimension = 2;
+		return rerror("non 2d image");
+	}
+	if (x->pixel_dimension != 3) {
+		iio_hacky_colorize(x, 3);
+	}
+	*w = x->sizes[0];
+	*h = x->sizes[1];
 	iio_convert_samples(x, IIO_TYPE_FLOAT);
 	return x->data;
 }
