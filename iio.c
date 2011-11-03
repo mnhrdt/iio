@@ -1892,8 +1892,8 @@ static int read_beheaded_juv(struct iio_image *x,
 	int w, h, r = sscanf(buf, "#UV {\n dimx %d dimy %d\n}\n", &w, &h);
 	if (r != 2) return -1;
 	size_t sf = sizeof(float);
-	float *u = xmalloc(w*h*sf); r = fread(u, w*h, sf, f); if(r!=w*h) goto e;
-	float *v = xmalloc(w*h*sf); r = fread(v, w*h, sf, f); if(r!=w*h) goto e;
+	float *u = xmalloc(w*h*sf); r = fread(u, sf, w*h, f); if(r!=w*h) goto e;
+	float *v = xmalloc(w*h*sf); r = fread(v, sf, w*h, f); if(r!=w*h) goto e;
 	float *uv = xmalloc(2*w*h*sf);
 	FORI(w*h) uv[2*i] = u[i];
 	FORI(w*h) uv[2*i+1] = v[i];
@@ -2896,6 +2896,8 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				|| string_suffix(filename, ".PNG")
 				|| (typ==IIO_TYPE_UINT8&&x->pixel_dimension==4)
 				|| (typ==IIO_TYPE_FLOAT&&x->pixel_dimension==4)
+				|| (typ==IIO_TYPE_UINT8&&x->pixel_dimension==2)
+				|| (typ==IIO_TYPE_FLOAT&&x->pixel_dimension==2)
 		   )
 		{
 			if (typ == IIO_TYPE_FLOAT) {

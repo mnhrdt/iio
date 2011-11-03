@@ -33,6 +33,7 @@ float *iio_read_image_float(const char *fname, int *w, int *h);
 float *iio_read_image_float_vec(const char *fname, int *w, int *h, int *pd);
 // x[(i + j*w)*pd + l]
 
+float *iio_read_image_float_rgb(const char *fname, int *w, int *h);
 
 //
 // convenience float API for 2D images (also returns a freeable pointer)
