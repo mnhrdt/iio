@@ -965,6 +965,39 @@ static void iio_hacky_uncolorize(struct iio_image *x)
 	x->pixel_dimension = 1;
 }
 
+// uncolorize
+static void iio_hacky_uncolorizea(struct iio_image *x)
+{
+	assert(!x->contiguous_data);
+	if (x->pixel_dimension != 4)
+		error("please, do not uncolorizea non-colora stuff");
+	assert(x->pixel_dimension == 4);
+	int source_type = normalize_type(x->type);
+	int n = iio_image_number_of_elements(x);
+	switch(source_type) {
+	case IIO_TYPE_UINT8: {
+		uint8_t (*xd)[4] = x->data;
+		uint8_t *r = xmalloc(n*sizeof*r);
+		FORI(n)
+			r[i] = .299*xd[i][0] + .587*xd[i][1] + .114*xd[i][2];
+		xfree(x->data);
+		x->data = r;
+		}
+		break;
+	case IIO_TYPE_FLOAT: {
+		float (*xd)[4] = x->data;
+		float *r = xmalloc(n*sizeof*r);
+		FORI(n)
+			r[i] = .299*xd[i][0] + .587*xd[i][1] + .114*xd[i][2];
+		xfree(x->data);
+		x->data = r;
+		}
+		break;
+	default: error("uncolorizea type not supported");
+	}
+	x->pixel_dimension = 1;
+}
+
 
 
 // (minimal) image processing using the iio_image {{{1
@@ -2434,11 +2467,10 @@ static void *rerror(const char *fmt, ...)
 #ifdef IIO_ABORT_ON_ERROR
 	va_list argp;
 	va_start(argp, fmt);
-	return error(fmt, argp);
+	error(fmt, argp);
 	va_end(argp);
-#else
-	return NULL;
 #endif
+	return NULL;
 }
 
 // 2D only
@@ -2734,8 +2766,10 @@ float *iio_read_image_float(const char *fname, int *w, int *h)
 	}
 	if (x->pixel_dimension == 3)
 		iio_hacky_uncolorize(x);
+	if (x->pixel_dimension == 4)
+		iio_hacky_uncolorizea(x);
 	if (x->pixel_dimension != 1)
-		return rerror("non-scalar image");
+		return rerror("non-scalarizable image");
 	*w = x->sizes[0];
 	*h = x->sizes[1];
 	iio_convert_samples(x, IIO_TYPE_FLOAT);
@@ -2895,9 +2929,9 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				|| string_suffix(filename, ".png")
 				|| string_suffix(filename, ".PNG")
 				|| (typ==IIO_TYPE_UINT8&&x->pixel_dimension==4)
-				|| (typ==IIO_TYPE_FLOAT&&x->pixel_dimension==4)
+			//	|| (typ==IIO_TYPE_FLOAT&&x->pixel_dimension==4)
 				|| (typ==IIO_TYPE_UINT8&&x->pixel_dimension==2)
-				|| (typ==IIO_TYPE_FLOAT&&x->pixel_dimension==2)
+			//	|| (typ==IIO_TYPE_FLOAT&&x->pixel_dimension==2)
 		   )
 		{
 			if (typ == IIO_TYPE_FLOAT) {
