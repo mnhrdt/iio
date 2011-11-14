@@ -22,12 +22,13 @@
 
 // #includes {{{1
 
-#define _POSIX_C_SOURCE 200809L
+#define _POSIX_C_SOURCE 200113L
 
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 
@@ -52,7 +53,7 @@
 #  define I_CAN_HAS_FMEMOPEN 1
 #endif
 
-#ifdef _POSIX_C_SOURCE
+#ifdef _XOPEN_SOURCE
 #  define I_CAN_HAS_MKSTEMP 1
 #endif
 
@@ -863,51 +864,64 @@ static void *convert_data(void *src, int n, int dest_fmt, int src_fmt)
 
 static void unpack_nibbles_to_bytes(uint8_t out[2], uint8_t in)
 {
-	out[0] = (in & 0x0f);    //0b00001111
-	out[1] = (in & 0xf0)>>4; //0b11110000
+	out[1] = (in & 0x0f);    //0b00001111
+	out[0] = (in & 0xf0)>>4; //0b11110000
 }
 
 static void unpack_couples_to_bytes(uint8_t out[4], uint8_t in)
 {
-	out[0] = (in & 0x03);    //0b00000011
-	out[1] = (in & 0x0c)>>2; //0b00001100
-	out[0] = (in & 0x30)>>4; //0b00110000
+	out[3] = (in & 0x03);    //0b00000011
+	out[2] = (in & 0x0c)>>2; //0b00001100
+	out[1] = (in & 0x30)>>4; //0b00110000
 	out[0] = (in & 0xc0)>>6; //0b11000000
 }
 
 static void unpack_bits_to_bytes(uint8_t out[8], uint8_t in)
 {
-	out[0] = (in & 1) ? 1 : 0;
-	out[1] = (in & 2) ? 1 : 0;
-	out[2] = (in & 4) ? 1 : 0;
-	out[3] = (in & 8) ? 1 : 0;
-	out[4] = (in & 16) ? 1 : 0;
-	out[5] = (in & 32) ? 1 : 0;
-	out[6] = (in & 64) ? 1 : 0;
-	out[7] = (in & 128) ? 1 : 0;
+	out[7] = (in & 1) ? 1 : 0;
+	out[6] = (in & 2) ? 1 : 0;
+	out[5] = (in & 4) ? 1 : 0;
+	out[4] = (in & 8) ? 1 : 0;
+	out[3] = (in & 16) ? 1 : 0;
+	out[2] = (in & 32) ? 1 : 0;
+	out[1] = (in & 64) ? 1 : 0;
+	out[0] = (in & 128) ? 1 : 0;
 }
 
-static uint8_t *unpack_to_bytes(uint8_t *s, int n, int src_bits)
+static void unpack_to_bytes_here(uint8_t *dest, uint8_t *src, int n, int bits)
 {
-	assert(src_bits==1 || src_bits==2 || src_bits==4);
-	size_t unpack_factor = 8 / src_bits;
-	uint8_t *r = xmalloc(n * unpack_factor);
-	switch(src_bits) {
-	case 1: FORI(n)    unpack_bits_to_bytes(r + 8*i, s[i]); break;
-	case 2: FORI(n) unpack_couples_to_bytes(r + 4*i, s[i]); break;
-	case 4: FORI(n) unpack_nibbles_to_bytes(r + 2*i, s[i]); break;
+	fprintf(stderr, "unpacking %d bytes %d-fold\n", n, bits);
+	assert(bits==1 || bits==2 || bits==4);
+	size_t unpack_factor = 8 / bits;
+	switch(bits) {
+	case 1: FORI(n)    unpack_bits_to_bytes(dest + 8*i, src[i]); break;
+	case 2: FORI(n) unpack_couples_to_bytes(dest + 4*i, src[i]); break;
+	case 4: FORI(n) unpack_nibbles_to_bytes(dest + 2*i, src[i]); break;
 	default: error("very strange error");
 	}
-	xfree(s);
-	return r;
 }
+
+//static uint8_t *unpack_to_bytes(uint8_t *s, int n, int src_bits)
+//{
+//	assert(src_bits==1 || src_bits==2 || src_bits==4);
+//	size_t unpack_factor = 8 / src_bits;
+//	uint8_t *r = xmalloc(n * unpack_factor);
+//	switch(src_bits) {
+//	case 1: FORI(n)    unpack_bits_to_bytes(r + 8*i, s[i]); break;
+//	case 2: FORI(n) unpack_couples_to_bytes(r + 4*i, s[i]); break;
+//	case 4: FORI(n) unpack_nibbles_to_bytes(r + 2*i, s[i]); break;
+//	default: error("very strange error");
+//	}
+//	xfree(s);
+//	return r;
+//}
 
 static void iio_convert_samples(struct iio_image *x, int desired_type)
 {
-	IIO_DEBUG("converting from %s to %s\n", iio_strtyp(x->type), iio_strtyp(desired_type));
 	assert(!x->contiguous_data);
 	int source_type = normalize_type(x->type);
 	if (source_type == desired_type) return;
+	IIO_DEBUG("converting from %s to %s\n", iio_strtyp(x->type), iio_strtyp(desired_type));
 	int n = iio_image_number_of_samples(x);
 	x->data = convert_data(x->data, n, desired_type, source_type);
 	x->type = desired_type;
@@ -1445,7 +1459,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	if(r)IIO_DEBUG("tiff get field spp %d (r=%d)\n", spp, r);
 
 	r = TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, &bps);
-	if(!r) bps=8;
+	if(!r) bps=1;
 	if(r)IIO_DEBUG("tiff get field bps %d (r=%d)\n", bps, r);
 
 	r = TIFFGetField(tif, TIFFTAG_SAMPLEFORMAT, &fmt);
@@ -1487,29 +1501,39 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 
 
 	// acquire memory block
-	uint32_t scanline_size = w * spp * (bps/8);
+	uint32_t scanline_size = (w * spp * bps)/8;
+	uint32_t uscanline_size = w * spp;
+	IIO_DEBUG("bps = %d\n", (int)bps);
 	IIO_DEBUG("spp = %d\n", (int)spp);
 	IIO_DEBUG("sls = %d\n", (int)scanline_size);
 	int sls = TIFFScanlineSize(tif);
 	IIO_DEBUG("sls(r) = %d\n", (int)sls);
+	assert((int)scanline_size == sls);
 	scanline_size = sls;
-	uint8_t *data = xmalloc(h * scanline_size);
-	FORI(h*scanline_size) data[i] = 42;
+	uint8_t *data = xmalloc(h * uscanline_size);
+	//FORI(h*scanline_size) data[i] = 42;
+	uint8_t *buf = xmalloc(scanline_size);
 
 	// dump scanline data
 	FORI(h) {
-		r = TIFFReadScanline(tif, data + i * scanline_size, i,  0);
+		//r = TIFFReadScanline(tif, data + i * scanline_size, i,  0);
+		r = TIFFReadScanline(tif, buf, i, 0);
 		if (r < 0) error("error reading tiff row %d/%d", i, (int)h);
+
+		if (bps < 8) {
+			fprintf(stderr, "unpacking %dth scanline\n", i);
+			unpack_to_bytes_here(data + i*uscanline_size, buf,
+					scanline_size, bps);
+			fmt_iio = IIO_TYPE_UINT8;
+		} else {
+			assert(uscanline_size == scanline_size);
+			memcpy(data + i*uscanline_size, buf, scanline_size);
+		}
 	}
 	TIFFClose(tif);
 
-	// unpack data (if needed)
-	if (bps < 8) {
-		uint32_t datasize = h * scanline_size;
-		uint8_t *tmp = unpack_to_bytes(data, datasize, bps);
-		data = tmp;
-		fmt_iio = IIO_TYPE_UINT8;
-	}
+
+	xfree(buf);
 
 	// fill struct fields
 	x->dimension = 2;
@@ -2860,6 +2884,9 @@ static bool string_suffix(const char *s, const char *suf)
 	return 0 == strcmp(suf, s + (len_s - len_suf));
 }
 
+// Note:
+// This function was written without being designed.  See file "saving.txt" for
+// an attempt at designing it.
 static void iio_save_image_default(const char *filename, struct iio_image *x)
 {
 	int typ = normalize_type(x->type);
