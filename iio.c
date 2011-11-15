@@ -1502,7 +1502,8 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 
 	// acquire memory block
 	uint32_t scanline_size = (w * spp * bps)/8;
-	uint32_t uscanline_size = w * spp;
+	int rbps = bps/8 ? bps/8 : 1;
+	uint32_t uscanline_size = w * spp * rbps;
 	IIO_DEBUG("bps = %d\n", (int)bps);
 	IIO_DEBUG("spp = %d\n", (int)spp);
 	IIO_DEBUG("sls = %d\n", (int)scanline_size);
@@ -1510,7 +1511,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	IIO_DEBUG("sls(r) = %d\n", (int)sls);
 	assert((int)scanline_size == sls);
 	scanline_size = sls;
-	uint8_t *data = xmalloc(h * uscanline_size);
+	uint8_t *data = xmalloc(w * h * spp * rbps);
 	//FORI(h*scanline_size) data[i] = 42;
 	uint8_t *buf = xmalloc(scanline_size);
 
@@ -1526,8 +1527,8 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 					scanline_size, bps);
 			fmt_iio = IIO_TYPE_UINT8;
 		} else {
-			assert(uscanline_size == scanline_size);
-			memcpy(data + i*uscanline_size, buf, scanline_size);
+			//assert(uscanline_size == scanline_size);
+			memcpy(data + i*scanline_size, buf, scanline_size);
 		}
 	}
 	TIFFClose(tif);
