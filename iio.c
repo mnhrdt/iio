@@ -1132,7 +1132,7 @@ static char *put_data_into_temporary_file(void *filedata, size_t filesize)
 #ifdef I_CAN_HAS_MKSTEMP
 	static char filename[] = "/tmp/iio_temporal_file_XXXXXX\0";
 	int r = mkstemp(filename);
-	if (r == -1) error("caca");
+	if (r == -1) error("caca [pditf]");
 #else
 	// WARNING XXX XXX XXX ERROR FIXME TODO WARNING:
 	// this function is not reentrant
@@ -2259,7 +2259,7 @@ static void iio_save_image_as_tiff_smarter(const char *filename,
 #ifdef I_CAN_HAS_MKSTEMP
 		static char tfn[] = "/tmp/iio_temporal_tiff_XXXXXX\0";
 		int r = mkstemp(tfn);
-		if (r == -1) error("caca");
+		if (r == -1) error("caca [tiff smarter]");
 #else
 		static char buf[L_tmpnam+1];
 		char *tfn = tmpnam(buf);
@@ -2270,12 +2270,53 @@ static void iio_save_image_as_tiff_smarter(const char *filename,
 		while ((c = fgetc(f)) != EOF)
 			fputc(c, stdout);
 		fclose(f);
+		delete_temporary_file(tfn);
 	} else
 		iio_save_image_as_tiff(filename, x);
 }
 
 #endif//I_CAN_HAS_LIBTIFF
 
+
+// JUV writer {{{2
+static void iio_save_image_as_juv(const char *filename, struct iio_image *x)
+{
+	assert(x->type == IIO_TYPE_FLOAT);
+	assert(x->dimension == 2);
+	char buf[255]; FORI(255) buf[i] = 0;
+	snprintf(buf, 255, "#UV {\n dimx %d dimy %d\n}\n",
+			x->sizes[0], x->sizes[1]);
+	size_t sf = sizeof(float);
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	float *uv = x->data;
+	float *u = xmalloc(w*h*sf); FORI(w*h) u[i] = uv[2*i];
+	float *v = xmalloc(w*h*sf); FORI(w*h) v[i] = uv[2*i+1];
+	FILE *f = xfopen(filename, "w");
+	fwrite(u, sf, w*h, f);
+	fwrite(u, sf, w*h, f);
+	xfclose(f);
+	xfree(u); xfree(v);
+}
+
+
+// FLO writer {{{2
+static void iio_save_image_as_flo(const char *filename, struct iio_image *x)
+{
+	assert(x->type == IIO_TYPE_FLOAT);
+	assert(x->dimension == 2);
+	union { char s[4]; float f; } pieh = {"PIEH"};
+	assert(sizeof(float) == 4);
+	assert(pieh.f == 202021.25);
+	uint32_t w = x->sizes[0];
+	uint32_t h = x->sizes[1];
+	FILE *f = xfopen(filename, "w");
+	fwrite(&pieh.f, 4, 1, f);
+	fwrite(&w, 4, 1, f);
+	fwrite(&h, 4, 1, f);
+	fwrite(x->data, 4, w*h*2, f);
+	xfclose(f);
+}
 
 // guess format using magic {{{1
 
@@ -2412,11 +2453,11 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_RAFA:   return read_beheaded_rafa (x, f, h, hn);
 	*/
 
-#ifdef I_CAN_HAS_WHATEVER
+//#ifdef I_CAN_HAS_WHATEVER
 	case IIO_FORMAT_UNRECOGNIZED: return read_beheaded_whatever(x,f,h,hn);
-#else
-	case IIO_FORMAT_UNRECOGNIZED: return -2;
-#endif
+//#else
+//	case IIO_FORMAT_UNRECOGNIZED: return -2;
+//#endif
 
 	default:              return -17;
 	}
@@ -2467,7 +2508,7 @@ static int read_image(struct iio_image *x, const char *fname)
 	case 2: IIO_DEBUG("READ IMAGE sizes = %d x %d\n",x->sizes[0],x->sizes[1]);break;
 	case 3: IIO_DEBUG("READ IMAGE sizes = %d x %d x %d\n",x->sizes[0],x->sizes[1],x->sizes[2]);break;
 	case 4: IIO_DEBUG("READ IMAGE sizes = %d x %d x %d x %d\n",x->sizes[0],x->sizes[1],x->sizes[2],x->sizes[3]);break;
-	default: error("caca");
+	default: error("caca [dimension = %d]", x->dimension);
 	}
 	//FORI(x->dimension) IIO_DEBUG(" %d", x->sizes[i]);
 	//IIO_DEBUG("\n");
@@ -2893,7 +2934,17 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 	int typ = normalize_type(x->type);
 	if (x->dimension != 2) error("de moment només escrivim 2D");
 	//static bool silly = true;
-	if (x->pixel_dimension != 1 && x->pixel_dimension != 3 && x->pixel_dimension != 4)
+	if (string_suffix(filename, ".uv") && typ == IIO_TYPE_FLOAT
+				&& x->pixel_dimension == 2) {
+		iio_save_image_as_juv(filename, x);
+		return;
+	}
+	if (string_suffix(filename, ".flo") && typ == IIO_TYPE_FLOAT
+				&& x->pixel_dimension == 2) {
+		iio_save_image_as_flo(filename, x);
+		return;
+	}
+	if (x->pixel_dimension != 1 && x->pixel_dimension != 3 && x->pixel_dimension != 4 && x->pixel_dimension != 2 )
 	{
 		iio_save_image_as_tiff_smarter(filename, x);
 		return;
@@ -3148,50 +3199,50 @@ void iio_save_image_uint16_vec(char *filename, uint16_t *data,
 
 // misc debugging stuff {{{1
 
-void try_iio(void);
-void try_iio(void)
-{
-#ifdef _XOPEN_SOURCE
-	IIO_DEBUG("IIO compiled with _XOPEN_SOURCE = %d\n",_XOPEN_SOURCE);
-#endif
-	int w, h;
-	float **t = iio_read_image_float_matrix("-", &w, &h);
-	printf("we read a %dx%d image!\n", w, h);
-	xfree(t);
-
-	/*
-	FILE *f = stdin;
-	struct iio_image x[1]; read_image_f(x, f);
-	printf("we read a %dx%d image!\n", x->sizes[0], x->sizes[1]);
-	iio_print_image_info(stdout, x);
-	xfree(x->data);
-	*/
-	/*
-	FILE *f = stdin;
-	struct iio_image *x = read_whole_jpeg(f);
-	printf("we read a %dx%d jpg!\n", x->sizes[0], x->sizes[1]);
-	unsigned char *data = x->data;
-	FORJ(x->sizes[1]) FORI(x->sizes[0])
-		FORL(x->pixel_dimension)
-			printf("%g%c", (float)data[(x->sizes[0]*j+i)*x->pixel_dimension+l],
-					l==x->pixel_dimension-1?'\n':' ');
-	xfree(x);
-	*/
-	/*
-	FILE *f = stdin;
-	//struct iio_image x[1];
-	char buf[4];
-	FORI(4) buf[i] = fgetc(f);
-	struct iio_image *x = read_beheaded_image_png(f, buf, 4);
-	printf("we read a %dx%d png!\n", x->sizes[0], x->sizes[1]);
-	float *data = x->data;
-	//FORJ(x->sizes[1]) FORI(x->sizes[0])
-	//	FORL(x->pixel_dimension)
-	//		printf("%g%c", data[(x->sizes[0]*j+i)*x->pixel_dimension+l],
-	//				l==x->pixel_dimension-1?'\n':' ');
-	xfree(x);
-	*/
-}
+//void try_iio(void);
+//void try_iio(void)
+//{
+//#ifdef _XOPEN_SOURCE
+//	IIO_DEBUG("IIO compiled with _XOPEN_SOURCE = %d\n",_XOPEN_SOURCE);
+//#endif
+//	int w, h;
+//	float **t = iio_read_image_float_matrix("-", &w, &h);
+//	printf("we read a %dx%d image!\n", w, h);
+//	xfree(t);
+//
+//	/*
+//	FILE *f = stdin;
+//	struct iio_image x[1]; read_image_f(x, f);
+//	printf("we read a %dx%d image!\n", x->sizes[0], x->sizes[1]);
+//	iio_print_image_info(stdout, x);
+//	xfree(x->data);
+//	*/
+//	/*
+//	FILE *f = stdin;
+//	struct iio_image *x = read_whole_jpeg(f);
+//	printf("we read a %dx%d jpg!\n", x->sizes[0], x->sizes[1]);
+//	unsigned char *data = x->data;
+//	FORJ(x->sizes[1]) FORI(x->sizes[0])
+//		FORL(x->pixel_dimension)
+//			printf("%g%c", (float)data[(x->sizes[0]*j+i)*x->pixel_dimension+l],
+//					l==x->pixel_dimension-1?'\n':' ');
+//	xfree(x);
+//	*/
+//	/*
+//	FILE *f = stdin;
+//	//struct iio_image x[1];
+//	char buf[4];
+//	FORI(4) buf[i] = fgetc(f);
+//	struct iio_image *x = read_beheaded_image_png(f, buf, 4);
+//	printf("we read a %dx%d png!\n", x->sizes[0], x->sizes[1]);
+//	float *data = x->data;
+//	//FORJ(x->sizes[1]) FORI(x->sizes[0])
+//	//	FORL(x->pixel_dimension)
+//	//		printf("%g%c", data[(x->sizes[0]*j+i)*x->pixel_dimension+l],
+//	//				l==x->pixel_dimension-1?'\n':' ');
+//	xfree(x);
+//	*/
+//}
 // }}}1
 
 // vim:set foldmethod=marker:
