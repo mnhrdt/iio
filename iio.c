@@ -2105,7 +2105,8 @@ static int read_beheaded_whatever(struct iio_image *x,
 	xfree(filedata);
 	//IIO_DEBUG("tmpfile = \"%s\"\n", filename);
 
-	char command_format[] = "convert - %s < %s\0";
+	//char command_format[] = "convert - %s < %s\0";
+	char command_format[] = "/usr/bin/convert - %s < %s\0";
 	char ppmname[strlen(filename)+5];
 	sprintf(ppmname, "%s.ppm", filename);
 	char command[strlen(command_format)+1+2*strlen(filename)];
@@ -2283,7 +2284,7 @@ static void iio_save_image_as_juv(const char *filename, struct iio_image *x)
 {
 	assert(x->type == IIO_TYPE_FLOAT);
 	assert(x->dimension == 2);
-	char buf[255]; FORI(255) buf[i] = 0;
+	char buf[255]; FORI(255) buf[i] = ' ';
 	snprintf(buf, 255, "#UV {\n dimx %d dimy %d\n}\n",
 			x->sizes[0], x->sizes[1]);
 	size_t sf = sizeof(float);
@@ -2293,8 +2294,9 @@ static void iio_save_image_as_juv(const char *filename, struct iio_image *x)
 	float *u = xmalloc(w*h*sf); FORI(w*h) u[i] = uv[2*i];
 	float *v = xmalloc(w*h*sf); FORI(w*h) v[i] = uv[2*i+1];
 	FILE *f = xfopen(filename, "w");
+	fwrite(buf, 1, 255, f);
 	fwrite(u, sf, w*h, f);
-	fwrite(u, sf, w*h, f);
+	fwrite(v, sf, w*h, f);
 	xfclose(f);
 	xfree(u); xfree(v);
 }
