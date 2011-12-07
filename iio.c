@@ -18,6 +18,7 @@
 //
 // See file "iio.txt" for slightly more detailed documentation, and "iio.h" for
 // the API
+//
 
 
 // #includes {{{1
@@ -670,6 +671,7 @@ static void *iio_image_get_data(struct iio_image *x) { return x->data; }
 
 // data conversion {{{1
 
+#define T0(x) ((x)>0?(x):0)
 
 #define CC(a,b) (77*(a)+(b)) // hash number of a conversion pair
 #define I8 IIO_TYPE_INT8
@@ -737,7 +739,7 @@ static void convert_datum(void *dest, void *src, int dest_fmt, int src_fmt)
 	case CC(I8,F8): *(  int8_t*)dest = *(double*)src; break;//iw810
 	case CC(I6,F8): *( int16_t*)dest = *(double*)src; break;//iw810
 	case CC(I2,F8): *( int32_t*)dest = *(double*)src; break;//iw810
-	case CC(U8,F4): *( uint8_t*)dest = *( float*)src; break;//iw810
+	case CC(U8,F4): *( uint8_t*)dest = T0(*( float*)src); break;//iw810
 	case CC(U6,F4): *(uint16_t*)dest = *( float*)src; break;//iw810
 	case CC(U2,F4): *(uint32_t*)dest = *( float*)src; break;
 	case CC(U8,F8): *( uint8_t*)dest = *(double*)src; break;//iw810
@@ -2269,7 +2271,7 @@ static void iio_save_image_as_png(const char *filename, struct iio_image *x)
 
 static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 {
-	fprintf(stderr, "saving image as tiff file \"%s\"\n", filename);
+	//fprintf(stderr, "saving image as tiff file \"%s\"\n", filename);
 	if (x->dimension != 2)
 		error("only 2d images can be saved as TIFFs");
 	TIFF *tif = TIFFOpen(filename, "w");
@@ -3006,7 +3008,7 @@ static bool these_floats_are_actually_bytes(float *t, int n)
 //// returns the first argument, or NULL
 //static const char *hassufix(const char *haystack, const char *needle)
 //{
-//	const char *r = 
+//	const char *r =
 //}
 
 static bool string_suffix(const char *s, const char *suf)
@@ -3042,7 +3044,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		return;
 		//error("de moment només escrivim gris ó RGB");
 	}
-	if (typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16)
+	if (typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8)
 		error("de moment només fem floats o bytes (got %d)",typ);
 	int nsamp = iio_image_number_of_samples(x);
 	if (typ == IIO_TYPE_FLOAT &&
