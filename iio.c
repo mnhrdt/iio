@@ -23,8 +23,6 @@
 
 // #includes {{{1
 
-#define _POSIX_C_SOURCE 200113L
-
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -50,11 +48,11 @@
 // configuration
 //
 
-#ifdef _GNU_SOURCE
+#if _POSIX_C_SOURCE >= 200809L
 #  define I_CAN_HAS_FMEMOPEN 1
 #endif
 
-#ifdef _XOPEN_SOURCE
+#if _POSIX_C_SOURCE >= 200112L
 #  define I_CAN_HAS_MKSTEMP 1
 #endif
 
