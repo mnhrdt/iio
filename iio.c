@@ -1985,8 +1985,8 @@ static int read_beheaded_juv(struct iio_image *x,
 	int w, h, r = sscanf(buf, "#UV {\n dimx %d dimy %d\n}\n", &w, &h);
 	if (r != 2) return -1;
 	size_t sf = sizeof(float);
-	float *u = xmalloc(w*h*sf); r = fread(u, sf, w*h, f); if(r!=w*h) goto e;
-	float *v = xmalloc(w*h*sf); r = fread(v, sf, w*h, f); if(r!=w*h) goto e;
+	float *u = xmalloc(w*h*sf); r = fread(u, sf, w*h, f);if(r!=w*h)return-2;
+	float *v = xmalloc(w*h*sf); r = fread(v, sf, w*h, f);if(r!=w*h)return-2;
 	float *uv = xmalloc(2*w*h*sf);
 	FORI(w*h) uv[2*i] = u[i];
 	FORI(w*h) uv[2*i+1] = v[i];
@@ -1999,7 +1999,6 @@ static int read_beheaded_juv(struct iio_image *x,
 	x->contiguous_data = false;
 	x->data = uv;
 	return 0;
-e:	return -2;
 }
 
 // LUM reader {{{2
