@@ -35,6 +35,9 @@ float *iio_read_image_float_vec(const char *fname, int *w, int *h, int *pd);
 
 float *iio_read_image_float_rgb(const char *fname, int *w, int *h);
 
+float *iio_read_image_float_split(const char *fname, int *w, int *h, int *pd);
+// x[w*h*l + i + j*w]
+
 //
 // convenience float API for 2D images (also returns a freeable pointer)
 //
@@ -259,6 +262,7 @@ struct iio_image *iio_image_build(int dimension, int *sizes,
 #include <stdint.h>
 
 void iio_save_image_float_vec(char *filename, float *x, int w, int h, int pd);
+void iio_save_image_float_split(char *filename, float *x, int w, int h, int pd);
 void iio_save_image_double_vec(char *filename, double *x, int w, int h, int pd);
 void iio_save_image_float(char *filename, float *x, int w, int h);
 void iio_save_image_double(char *filename, double *x, int w, int h);
