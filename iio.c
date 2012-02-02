@@ -1270,6 +1270,23 @@ static bool find_dimensions_in_string_3d(int out[3], char *s)
 	return true;
 }
 
+// todo make this function more general, or a front-end to a general
+// "data trasposition" routine
+static void break_pixels_float(float *broken, float *clear, int n, int pd)
+{
+	fprintf(stderr, "breaking %d %d-dimensional vectors\n", n, pd);
+	FORI(n) FORL(pd)
+		broken[n*l + i] = clear[pd*i + l];
+}
+
+static void
+recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
+{
+	fprintf(stderr, "unbreaking %d %d-dimensional vectors\n", n, pd);
+	FORL(pd) FORI(n)
+		clear[pd*i + l] = broken[n*l + i];
+}
+
 // individual format readers {{{1
 // PNG reader {{{2
 
@@ -2667,6 +2684,16 @@ float *iio_read_image_float_vec(const char *fname, int *w, int *h, int *pd)
 }
 
 // API 2D
+float *iio_read_image_float_split(const char *fname, int *w, int *h, int *pd)
+{
+	float *r = iio_read_image_float_vec(fname, w, h, pd);
+	float *rbroken = xmalloc(*w**h**pd*sizeof*rbroken);
+	break_pixels_float(rbroken, r, *w**h, *pd);
+	xfree(r);
+	return rbroken;
+}
+
+// API 2D
 float *iio_read_image_float_rgb(const char *fname, int *w, int *h)
 {
 	struct iio_image x[1];
@@ -3220,6 +3247,15 @@ void iio_save_image_float_vec(char *filename, float *data,
 	x->data = data;
 	x->contiguous_data = false;
 	iio_save_image_default(filename, x);
+}
+
+void iio_save_image_float_split(char *filename, float *data,
+		int w, int h, int pd)
+{
+	float *rdata = xmalloc(w*h*pd*sizeof*rdata);
+	recover_broken_pixels_float(rdata, data, w*h, pd);
+	iio_save_image_float_vec(filename, rdata, w, h, pd);
+	xfree(rdata);
 }
 
 void iio_save_image_double_vec(char *filename, double *data,
