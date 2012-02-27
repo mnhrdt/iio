@@ -2418,6 +2418,56 @@ static void iio_save_image_as_flo(const char *filename, struct iio_image *x)
 	xfclose(f);
 }
 
+// RIM writer {{{2
+
+static void rim_putshort(FILE *f, uint16_t n)
+{
+	int a = n % 0x100;
+	int b = n / 0x100;
+	assert(a >= 0);
+	assert(b >= 0);
+	assert(a < 256);
+	assert(b < 256);
+	fputc(b, f);
+	fputc(a, f);
+}
+
+static void iio_save_image_as_rim_fimage(const char *fname, struct iio_image *x)
+{
+	if (x->type != IIO_TYPE_FLOAT) error("fimage expects float data");
+	if (x->dimension != 2) error("fimage expects 2d image");
+	if (x->pixel_dimension != 1) error("fimage expects gray image");
+	FILE *f = xfopen(fname, "w");
+	fputc('I', f);
+	fputc('R', f);
+	rim_putshort(f, 2);
+	rim_putshort(f, x->sizes[0]);
+	rim_putshort(f, x->sizes[1]);
+	FORI(29) rim_putshort(f, 0);
+	int r = fwrite(x->data, sizeof(float), x->sizes[0]*x->sizes[1], f);
+	if (r != x->sizes[0]*x->sizes[1])
+		error("could not write an entire fimage for some reason");
+	xfclose(f);
+}
+
+static void iio_save_image_as_rim_cimage(const char *fname, struct iio_image *x)
+{
+	if (x->type != IIO_TYPE_UINT8) error("cimage expects byte data");
+	if (x->dimension != 2) error("cimage expects 2d image");
+	if (x->pixel_dimension != 1) error("cimage expects gray image");
+	FILE *f = xfopen(fname, "w");
+	fputc('M', f);
+	fputc('I', f);
+	rim_putshort(f, 2);
+	rim_putshort(f, x->sizes[0]);
+	rim_putshort(f, x->sizes[1]);
+	FORI(29) rim_putshort(f, 0);
+	int r = fwrite(x->data, 1, x->sizes[0]*x->sizes[1], f);
+	if (r != x->sizes[0]*x->sizes[1])
+		error("could not write an entire cimage for some reason");
+	xfclose(f);
+}
+
 // guess format using magic {{{1
 
 
@@ -3062,6 +3112,16 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 	if (string_suffix(filename, ".flo") && typ == IIO_TYPE_FLOAT
 				&& x->pixel_dimension == 2) {
 		iio_save_image_as_flo(filename, x);
+		return;
+	}
+	if (string_suffix(filename, ".mw") && typ == IIO_TYPE_FLOAT
+				&& x->pixel_dimension == 1) {
+		iio_save_image_as_rim_fimage(filename, x);
+		return;
+	}
+	if (string_suffix(filename, ".mw") && typ == IIO_TYPE_UINT8
+				&& x->pixel_dimension == 1) {
+		iio_save_image_as_rim_cimage(filename, x);
 		return;
 	}
 	if (x->pixel_dimension != 1 && x->pixel_dimension != 3 && x->pixel_dimension != 4 && x->pixel_dimension != 2 )
