@@ -739,11 +739,11 @@ static void convert_datum(void *dest, void *src, int dest_fmt, int src_fmt)
 	case CC(I8,F8): *(  int8_t*)dest = *(double*)src; break;//iw810
 	case CC(I6,F8): *( int16_t*)dest = *(double*)src; break;//iw810
 	case CC(I2,F8): *( int32_t*)dest = *(double*)src; break;//iw810
-	case CC(U8,F4): *( uint8_t*)dest = T8(*( float*)src); break;//iw810
-	case CC(U6,F4): *(uint16_t*)dest = T6(*( float*)src); break;//iw810
+	case CC(U8,F4): *( uint8_t*)dest = T8(0.5+*( float*)src); break;//iw810
+	case CC(U6,F4): *(uint16_t*)dest = T6(0.5+*( float*)src); break;//iw810
 	case CC(U2,F4): *(uint32_t*)dest = *( float*)src; break;
-	case CC(U8,F8): *( uint8_t*)dest = T8(*(double*)src); break;//iw810
-	case CC(U6,F8): *(uint16_t*)dest = T6(*(double*)src); break;//iw810
+	case CC(U8,F8): *( uint8_t*)dest = T8(0.5+*(double*)src); break;//iw810
+	case CC(U6,F8): *(uint16_t*)dest = T6(0.5+*(double*)src); break;//iw810
 	case CC(U2,F8): *(uint32_t*)dest = *(double*)src; break;//iw810
 
 	// to float (typically lossless, except for large integers)
@@ -813,8 +813,8 @@ static void convert_datum(void *dest, void *src, int dest_fmt, int src_fmt)
 	case CC(I8,F6): *(  int8_t*)dest = *(longdouble*)src; break;
 	case CC(I6,F6): *( int16_t*)dest = *(longdouble*)src; break;
 	case CC(I2,F6): *( int32_t*)dest = *(longdouble*)src; break;
-	case CC(U8,F6): *( uint8_t*)dest = T8(*(longdouble*)src); break;
-	case CC(U6,F6): *(uint16_t*)dest = T6(*(longdouble*)src); break;
+	case CC(U8,F6): *( uint8_t*)dest = T8(0.5+*(longdouble*)src); break;
+	case CC(U6,F6): *(uint16_t*)dest = T6(0.5+*(longdouble*)src); break;
 	case CC(U2,F6): *(uint32_t*)dest = *(longdouble*)src; break;
 	case CC(F4,F6): *(   float*)dest = *(longdouble*)src; break;
 	case CC(F8,F6): *(  double*)dest = *(longdouble*)src; break;
