@@ -1274,7 +1274,7 @@ static bool find_dimensions_in_string_3d(int out[3], char *s)
 // "data trasposition" routine
 static void break_pixels_float(float *broken, float *clear, int n, int pd)
 {
-	fprintf(stderr, "breaking %d %d-dimensional vectors\n", n, pd);
+	//fprintf(stderr, "breaking %d %d-dimensional vectors\n", n, pd);
 	FORI(n) FORL(pd)
 		broken[n*l + i] = clear[pd*i + l];
 }
@@ -1282,7 +1282,7 @@ static void break_pixels_float(float *broken, float *clear, int n, int pd)
 static void
 recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
 {
-	fprintf(stderr, "unbreaking %d %d-dimensional vectors\n", n, pd);
+	//fprintf(stderr, "unbreaking %d %d-dimensional vectors\n", n, pd);
 	FORL(pd) FORI(n)
 		clear[pd*i + l] = broken[n*l + i];
 }
