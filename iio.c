@@ -1270,11 +1270,28 @@ static bool find_dimensions_in_string_3d(int out[3], char *s)
 	return true;
 }
 
+static void break_pixels(void *broken, void *clear, int ss, int n, int pd)
+{
+	char *to = broken;
+	char *from = clear;
+	FORI(n) FORL(pd) FORK(ss)
+		to[(n*l + i)*ss + k] = from[(pd*i + l)*ss + k];
+
+}
+
+static void recover_broken_pixels(void *c, void *b, int ss, int n, int pd)
+{
+	char *to = c;
+	char *from = b;
+	FORL(pd) FORI(n) FORK(ss)
+		to[(pd*i + l)*ss + k] = from[(n*l + i)*ss + k];
+}
+
 // todo make this function more general, or a front-end to a general
 // "data trasposition" routine
 static void break_pixels_float(float *broken, float *clear, int n, int pd)
 {
-	fprintf(stderr, "breaking %d %d-dimensional vectors\n", n, pd);
+	//fprintf(stderr, "breaking %d %d-dimensional vectors\n", n, pd);
 	FORI(n) FORL(pd)
 		broken[n*l + i] = clear[pd*i + l];
 }
@@ -1282,7 +1299,7 @@ static void break_pixels_float(float *broken, float *clear, int n, int pd)
 static void
 recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
 {
-	fprintf(stderr, "unbreaking %d %d-dimensional vectors\n", n, pd);
+	//fprintf(stderr, "unbreaking %d %d-dimensional vectors\n", n, pd);
 	FORL(pd) FORI(n)
 		clear[pd*i + l] = broken[n*l + i];
 }
@@ -2311,7 +2328,7 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
 		break;
 	case 2:
-		//TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
 		//TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, 1, caca);
 		break;
 	case 4:
@@ -2323,6 +2340,7 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 		//error("bad pixel dimension %d for TIFF", x->pixel_dimension);
 	}
 	/////TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+	TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
 	//TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 	switch(x->type) {
 	case IIO_TYPE_FLOAT: tsf = SAMPLEFORMAT_IEEEFP; break;
