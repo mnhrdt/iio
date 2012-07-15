@@ -524,7 +524,7 @@ static const char *iio_strfmt(int format)
 	M(WHATEVER); M(QNM); M(PNG); M(JPEG);
 	M(TIFF); M(RIM); M(BMP); M(EXR); M(JP2);
 	M(VTK); M(CIMG); M(PAU); M(DICOM); M(PFM); M(NIFTI);
-	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO);
+	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(JUV);
 	M(UNRECOGNIZED);
 	default: fail("caca de la grossa");
 	}
