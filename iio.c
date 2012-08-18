@@ -2771,6 +2771,7 @@ float *iio_read_image_float_vec(const char *fname, int *w, int *h, int *pd)
 float *iio_read_image_float_split(const char *fname, int *w, int *h, int *pd)
 {
 	float *r = iio_read_image_float_vec(fname, w, h, pd);
+	if (!r) return rfail("could not read image");
 	float *rbroken = xmalloc(*w**h**pd*sizeof*rbroken);
 	break_pixels_float(rbroken, r, *w**h, *pd);
 	xfree(r);
@@ -3093,7 +3094,7 @@ uint8_t *iio_read_image_uint8(const char *fname, int *w, int *h)
 
 static bool this_float_is_actually_a_byte(float x)
 {
-	return (x == floorf(x)) && (x >= 0) && (x < 256);
+	return (x == floor(x)) && (x >= 0) && (x < 256);
 }
 
 static bool these_floats_are_actually_bytes(float *t, int n)
