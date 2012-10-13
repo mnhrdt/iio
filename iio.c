@@ -2689,6 +2689,19 @@ static int read_image(struct iio_image *x, const char *fname)
 	//	exit(42);
 	//}
 #endif//IIO_ABORT_ON_ERROR
+
+	// check for semantical name
+	if (fname == strstr(fname, "zero:")) {
+		int s[2], pd = 1;
+		if (3 == sscanf(fname+5, "%dx%d,%d", s, s+1, &pd));
+		else if (2 == sscanf(fname+5, "%dx%d", s, s+1));
+		else fail("bad semantical name \"%s\"", fname);
+		iio_image_build_independent(x, 2, s, IIO_TYPE_CHAR, pd);
+		for (int i = 0; i < *s*s[1]*pd; i++)
+			((char*)x->data)[i] = 0;
+		return 0;
+	}
+
 	FILE *f = xfopen(fname, "r");
 	int r = read_image_f(x, f);
 	fclose(f);
