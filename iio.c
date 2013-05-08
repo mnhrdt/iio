@@ -2359,6 +2359,7 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 	TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
 	//TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 	switch(x->type) {
+	case IIO_TYPE_DOUBLE:
 	case IIO_TYPE_FLOAT: tsf = SAMPLEFORMAT_IEEEFP; break;
 	case IIO_TYPE_INT8:
 	case IIO_TYPE_INT16:
@@ -3180,7 +3181,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		return;
 		//error("de moment només escrivim gris ó RGB");
 	}
-	if (typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8)
+	if (typ != IIO_TYPE_DOUBLE && typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8)
 		fail("de moment només fem floats o bytes (got %d)",typ);
 	int nsamp = iio_image_number_of_samples(x);
 	if (typ == IIO_TYPE_FLOAT &&
