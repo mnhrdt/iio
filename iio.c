@@ -767,6 +767,8 @@ static void convert_datum(void *dest, void *src, int dest_fmt, int src_fmt)
 	case CC(F8,U8): *(double*)dest = *( uint8_t*)src; break;
 	case CC(F8,U6): *(double*)dest = *(uint16_t*)src; break;
 	case CC(F8,U2): *(double*)dest = *(uint32_t*)src; break;
+	case CC(F8,F4): *(double*)dest = *(  float*)src; break;
+	case CC(F4,F8): *( float*)dest = *( double*)src; break;
 
 #ifdef I_CAN_HAS_INT64
 	// to int64_t and uint64_t
@@ -1696,7 +1698,7 @@ static int read_qnm_numbers(float *data, FILE *f, int n, int m, bool use_ascii)
 static int read_beheaded_qnm(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
-	assert(nheader == 2);
+	assert(nheader == 2); (void)header; (void)nheader;
 	int w, h, d = 1, m, pd = 1;
 	int c1 = header[0];
 	int c2 = header[1] - '0';
@@ -1946,7 +1948,7 @@ static int read_beheaded_rim_ccimage(struct iio_image *x, FILE *f, bool swp)
 
 static int read_beheaded_rim(struct iio_image *x, FILE *f, char *h, int nh)
 {
-	assert(nh == 2);
+	assert(nh == 2); (void)nh;
 	if (h[0] == 'I' && h[1] == 'R')
 		return read_beheaded_rim_fimage(x, f, false);
 	if (h[0] == 'R' && h[1] == 'I')
@@ -1981,7 +1983,7 @@ static int read_beheaded_pfm(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
 	assert(4 == sizeof(float));
-	assert(nheader == 2);
+	assert(nheader == 2); (void)nheader;
 	assert('f' == tolower(header[1]));
 	int w, h, pd = isupper(header[1]) ? 3 : 1;
 	float scale;
