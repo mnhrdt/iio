@@ -16,7 +16,7 @@ libiio   = CDLL(libiiofile)
 del libiiofile, here, lib_ext
 
 
-def piio_read(filename):
+def read(filename):
    from numpy import array, zeros
    from ctypes import c_int, c_float, c_void_p, CDLL, POINTER, cast, byref
 
@@ -47,7 +47,7 @@ def piio_read(filename):
    return data
 
 
-def piio_write(filename,data):
+def write(filename,data):
    from ctypes import CDLL, c_char_p, c_int, c_float
    from numpy.ctypeslib import ndpointer
 
@@ -64,7 +64,7 @@ def piio_write(filename,data):
    iiosave(filename, data.astype('float32'), w, h, nch)
 
 
-#d = piio_read('kk.tif')
+#d = piio.read('kk.tif')
 #print d.shape
 #print d[:,:,0] 
-#piio_write('kk2.tif',d)
+#piio.write('kk2.tif',d)

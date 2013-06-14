@@ -767,6 +767,8 @@ static void convert_datum(void *dest, void *src, int dest_fmt, int src_fmt)
 	case CC(F8,U8): *(double*)dest = *( uint8_t*)src; break;
 	case CC(F8,U6): *(double*)dest = *(uint16_t*)src; break;
 	case CC(F8,U2): *(double*)dest = *(uint32_t*)src; break;
+	case CC(F8,F4): *(double*)dest = *(  float*)src; break;
+	case CC(F4,F8): *( float*)dest = *( double*)src; break;
 
 #ifdef I_CAN_HAS_INT64
 	// to int64_t and uint64_t
@@ -1696,7 +1698,7 @@ static int read_qnm_numbers(float *data, FILE *f, int n, int m, bool use_ascii)
 static int read_beheaded_qnm(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
-	assert(nheader == 2);
+	assert(nheader == 2); (void)header; (void)nheader;
 	int w, h, d = 1, m, pd = 1;
 	int c1 = header[0];
 	int c2 = header[1] - '0';
@@ -1946,7 +1948,7 @@ static int read_beheaded_rim_ccimage(struct iio_image *x, FILE *f, bool swp)
 
 static int read_beheaded_rim(struct iio_image *x, FILE *f, char *h, int nh)
 {
-	assert(nh == 2);
+	assert(nh == 2); (void)nh;
 	if (h[0] == 'I' && h[1] == 'R')
 		return read_beheaded_rim_fimage(x, f, false);
 	if (h[0] == 'R' && h[1] == 'I')
@@ -1981,7 +1983,7 @@ static int read_beheaded_pfm(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
 	assert(4 == sizeof(float));
-	assert(nheader == 2);
+	assert(nheader == 2); (void)nheader;
 	assert('f' == tolower(header[1]));
 	int w, h, pd = isupper(header[1]) ? 3 : 1;
 	float scale;
@@ -2357,6 +2359,7 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 	TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
 	//TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 	switch(x->type) {
+	case IIO_TYPE_DOUBLE:
 	case IIO_TYPE_FLOAT: tsf = SAMPLEFORMAT_IEEEFP; break;
 	case IIO_TYPE_INT8:
 	case IIO_TYPE_INT16:
@@ -2689,6 +2692,19 @@ static int read_image(struct iio_image *x, const char *fname)
 	//	exit(42);
 	//}
 #endif//IIO_ABORT_ON_ERROR
+
+	// check for semantical name
+	if (fname == strstr(fname, "zero:")) {
+		int s[2], pd = 1;
+		if (3 == sscanf(fname+5, "%dx%d,%d", s, s+1, &pd));
+		else if (2 == sscanf(fname+5, "%dx%d", s, s+1));
+		else fail("bad semantical name \"%s\"", fname);
+		iio_image_build_independent(x, 2, s, IIO_TYPE_CHAR, pd);
+		for (int i = 0; i < *s*s[1]*pd; i++)
+			((char*)x->data)[i] = 0;
+		return 0;
+	}
+
 	FILE *f = xfopen(fname, "r");
 	int r = read_image_f(x, f);
 	fclose(f);
@@ -3165,7 +3181,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		return;
 		//error("de moment només escrivim gris ó RGB");
 	}
-	if (typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8)
+	if (typ != IIO_TYPE_DOUBLE && typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8)
 		fail("de moment només fem floats o bytes (got %d)",typ);
 	int nsamp = iio_image_number_of_samples(x);
 	if (typ == IIO_TYPE_FLOAT &&
