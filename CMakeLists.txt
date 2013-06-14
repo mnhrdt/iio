@@ -1,3 +1,7 @@
+                                                                     
+                                                                     
+                                                                     
+                                             
 cmake_minimum_required (VERSION 2.6) #specify the required version of cmake
 project (IIO)                        #give a name to the project/solution
 
@@ -11,7 +15,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 #
 #
 set_directory_properties (PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES 
-   "iioConfig.cmake;CMakeCache.txt;CMakeFiles;Makefile;cmake_install.cmake;iio;iion")
+   "iioConfig.cmake;CMakeCache.txt;CMakeFiles;Makefile;cmake_install.cmake;iio;iion;iio.o")
 
 
 # LIBRARIES
@@ -92,12 +96,12 @@ message("${inc_list}")
 
 
 ADD_CUSTOM_COMMAND(
-   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/iio.o
+   OUTPUT generate_iio.o 
    COMMAND ${CMAKE_C_COMPILER} ${inc_list} -c ${CMAKE_CURRENT_SOURCE_DIR}/iio.c -o ${CMAKE_CURRENT_BINARY_DIR}/iio.o
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/iio.c ${CMAKE_CURRENT_SOURCE_DIR}/iio.h
    COMMENT "Generating iio.o"
    )
-ADD_CUSTOM_TARGET(iio.o ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/iio.c)
+ADD_CUSTOM_TARGET(iio.o ALL DEPENDS generate_iio.o)
 
 
 # EXAMPLE

@@ -1,2 +1,2 @@
-from .piio import piio_read, piio_write
+from .piio import read, write
 
