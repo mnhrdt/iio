@@ -2,6 +2,7 @@
 #include <stdio.h> // only for "fprintf"
 #include <stdlib.h> // only for "free"
 
+
 // read an image in any format from STDIN and write a ppm to STDOUT
 int main(int c, char *v[])
 {
