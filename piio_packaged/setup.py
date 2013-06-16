@@ -2,11 +2,11 @@ from distutils.core import setup, Extension
 
 
 iiomodule = Extension('piio.libiio',  
-      libraries = ['png','jpeg','tiff'],
-      language=['c99'],
-      extra_compile_args = ['-std=c99','-DNDEBUG','-O3'], 
-      sources = ['piio/iio.c','piio/freemem.c']
-      )
+    libraries = ['png','jpeg','tiff'],
+    language=['c99'],
+    extra_compile_args = ['-std=c99','-DNDEBUG','-O3'], 
+    sources = ['piio/iio.c','piio/freemem.c']
+   )
 
 
 setup(
@@ -20,4 +20,4 @@ setup(
     packages=['piio'],
 #    ext_package='piio',
     ext_modules = [iiomodule]
-)
+   )

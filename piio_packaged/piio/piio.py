@@ -29,7 +29,7 @@ def read(filename):
    iioread.restype = c_void_p  # it's like this
    tptr = iioread(filename,byref(w),byref(h),byref(nch))
    c_float_p = POINTER(c_float)       # define a new type of pointer
-   ptr= cast(tptr, c_float_p)
+   ptr = cast(tptr, c_float_p)
    #print w,h,nch
    
    #nasty read data into array TODO IMPROVE using buffer copy
