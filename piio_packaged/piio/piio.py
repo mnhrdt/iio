@@ -16,9 +16,9 @@ del libiiofile, here, lib_ext
 
 
 def read(filename):
-'''
+   '''
    IIO: numpyarray = read(filename)
-'''
+   '''
    from numpy import array, zeros
    from ctypes import c_int, c_float, c_void_p, CDLL, POINTER, cast, byref
 
@@ -50,9 +50,9 @@ def read(filename):
 
 
 def write(filename,data):
-'''
+   '''
    IIO: write(filename,numpyarray)
-'''
+   '''
    from ctypes import CDLL, c_char_p, c_int, c_float
    from numpy.ctypeslib import ndpointer
 
