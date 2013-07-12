@@ -35,11 +35,11 @@ def read(filename):
    #nasty read data into array TODO IMPROVE using buffer copy
    #http://stackoverflow.com/questions/4355524/getting-data-from-ctypes-array-into-numpy
    #http://docs.scipy.org/doc/numpy/reference/generated/numpy.frombuffer.html
-   data=zeros((w.value,h.value,nch.value))
-   for j in range(h.value):
-      for i in range(w.value):
+   data=zeros((h.value,w.value,nch.value))
+   for i in range(h.value):
+      for j in range(w.value):
          for c in range(nch.value):
-            data[i,j,c] = ptr[(j + i*h.value)*nch.value + c]
+            data[i,j,c] = ptr[(j + i*w.value)*nch.value + c]
    
    # free the memory
    iiofreemem = libiio.freemem
@@ -53,8 +53,8 @@ def write(filename,data):
 
    iiosave = libiio.iio_save_image_float_vec
 
-   w  =data.shape[0]
-   h  =data.shape[1]
+   h  =data.shape[0]
+   w  =data.shape[1]
    nch=1
    if (len(data.shape)>2):
       nch=data.shape[2]
