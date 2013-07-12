@@ -236,15 +236,15 @@ static void *xmalloc(size_t size)
 {
 	if (size == 0)
 		fail("xmalloc: zero size");
-	void *new = malloc(size);
-	if (!new)
+	void *p = malloc(size);
+	if (!p)
 	{
 		double sm = size / (0x100000 * 1.0);
 		fail("xmalloc: out of memory when requesting "
 			"%zu bytes (%gMB)",//:\"%s\"",
 			size, sm);//, strerror(errno));
 	}
-	return new;
+	return p;
 }
 
 static void *xrealloc(void *p, size_t s)
