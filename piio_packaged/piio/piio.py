@@ -1,5 +1,4 @@
-import os,sys
-from ctypes import CDLL
+import os,sys,ctypes
 
 #if sys.platform.startswith('win'):
 #   lib_ext = '.dll'
@@ -12,11 +11,14 @@ from ctypes import CDLL
 lib_ext = '.so'
 here  = os.path.dirname(__file__)
 libiiofile= os.path.join(here, 'libiio'+lib_ext)
-libiio   = CDLL(libiiofile)
+libiio   = ctypes.CDLL(libiiofile)
 del libiiofile, here, lib_ext
 
 
 def read(filename):
+'''
+   IIO: numpyarray = read(filename)
+'''
    from numpy import array, zeros
    from ctypes import c_int, c_float, c_void_p, CDLL, POINTER, cast, byref
 
@@ -48,6 +50,9 @@ def read(filename):
 
 
 def write(filename,data):
+'''
+   IIO: write(filename,numpyarray)
+'''
    from ctypes import CDLL, c_char_p, c_int, c_float
    from numpy.ctypeslib import ndpointer
 
