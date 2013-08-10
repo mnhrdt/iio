@@ -1,28 +1,24 @@
-                                                                     
-                                                                     
-                                                                     
-                                             
-cmake_minimum_required (VERSION 2.6) #specify the required version of cmake
-project (IIO)                        #give a name to the project/solution
+CMAKE_MINIMUM_REQUIRED (VERSION 2.6) #specify the required version of cmake
+PROJECT (IIO)                        #give a name to the project/solution
 
 # ADD LOCAL PATH TO SEARCH MODULES
-list (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_PREFIX}")
-set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_PREFIX}")
+SET (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
 
 
 # SETUP A MAKE CLEAN TO CLEAN EVERYTHING
 #
 #
-set_directory_properties (PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES 
-   "iioConfig.cmake;CMakeCache.txt;CMakeFiles;Makefile;cmake_install.cmake;iio;iion;iio.o")
+SET_DIRECTORY_PROPERTIES (PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES 
+   "iioConfig.cmake;CMakeCache.txt;Makefile;cmake_install.cmake;iio;iion;iio.o")
 
 
 # LIBRARIES
 #
 #
 
-set (LIBS "")
+SET (LIBS "")
 
 # IF AVAILABLE USE OPENEXR
 FIND_PACKAGE(OPENEXR) 
@@ -30,30 +26,30 @@ FIND_PACKAGE(OPENEXR)
 # OPENEXR_INCLUDE_PATHS = OpenEXR include directories.
 # OPENEXR_LIBRARIES = libraries that are needed to use OpenEXR.
 IF (OPENEXR_FOUND) 
-   include_directories(${OPENEXR_INCLUDE_PATHS})
-   SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DI_CAN_HAS_LIBEXR")
+   INCLUDE_DIRECTORIES(${OPENEXR_INCLUDE_PATHS})
+   SET(C_FLAGS "${C_FLAGS} -DI_CAN_HAS_LIBEXR")
    SET( LIBS ${LIBS} ${OPENEXR_LIBRARIES})
 ENDIF()
 
 # OTHER LIBRARIES
 FIND_PACKAGE(TIFF)
 IF(TIFF_FOUND)
-   include_directories(${TIFF_INCLUDE_DIR})
-   #  link_directories(${TIFF_LIBRARY})
+   INCLUDE_DIRECTORIES(${TIFF_INCLUDE_DIR})
+   #  LINK_DIRECTORIES(${TIFF_LIBRARY})
    SET( LIBS ${LIBS} ${TIFF_LIBRARIES})
 ENDIF()
 
 FIND_PACKAGE(JPEG)
 if(JPEG_FOUND)
-   include_directories(${JPEG_INCLUDE_DIR})
-   # link_directories(${JPEG_LIBRARY})
+   INCLUDE_DIRECTORIES(${JPEG_INCLUDE_DIR})
+   # LINK_DIRECTORIES(${JPEG_LIBRARY})
    SET( LIBS ${LIBS} ${JPEG_LIBRARIES})
 ENDIF()
 
 FIND_PACKAGE(PNG)
 IF(PNG_FOUND)
-   include_directories(${PNG_INCLUDE_DIR})
-   #  link_directories(${PNG_LIBRARY})
+   INCLUDE_DIRECTORIES(${PNG_INCLUDE_DIR})
+   #  LINK_DIRECTORIES(${PNG_LIBRARY})
    SET( LIBS ${LIBS} ${PNG_LIBRARIES})
 ENDIF()
 
@@ -63,17 +59,19 @@ ENDIF()
 #
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
    # Linux specific code flags
-   SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DI_CAN_HAS_LINUX -D_GNU_SOURCE")
+   SET(C_FLAGS "${C_FLAGS} -DI_CAN_HAS_LINUX -D_GNU_SOURCE")
 ENDIF()
 
 
 # IIO
 #
 #
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -std=c99 -funroll-loops -Wno-unused")
-message( "FLAGS: ${CMAKE_C_FLAGS}")
-set(IIO_LIB_SRCS iio.h iio.c)       #Define a variable that contains files of the lib
-add_library(IIOLIB ${IIO_LIB_SRCS}) #Define that those files create the lib FooLib
+SET(C_FLAGS "${C_FLAGS} -O3 -std=c99 -funroll-loops -Wno-unused -DNDEBUG")
+MESSAGE( "FLAGS: ${C_FLAGS}")
+SET(IIO_LIB_SRCS iio.h iio.c)       #Define a variable that contains files of the lib
+ADD_LIBRARY(IIOLIB ${IIO_LIB_SRCS}) #Define that those files create the lib FooLib
+TARGET_LINK_LIBRARIES(IIOLIB ${LIBS})
+SET_TARGET_PROPERTIES(IIOLIB PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
 
 
 # generate custom iio.o
@@ -87,7 +85,7 @@ endforeach(next_ITEM ${inc_dirs})
 
 
 #HORRIBLE HACK TO CONCATENATE THE PARAMETERS
-STRING(REGEX REPLACE " "  ";" FLGS "${CMAKE_C_FLAGS}")
+STRING(REGEX REPLACE " "  ";" FLGS "${C_FLAGS}")
 foreach(next_ITEM ${FLGS})
       set(inc_list  ${inc_list}  ${next_ITEM})
 endforeach(next_ITEM ${FLGS})
@@ -107,22 +105,24 @@ ADD_CUSTOM_TARGET(iio.o ALL DEPENDS generate_iio.o)
 # EXAMPLE
 #
 #
-add_executable (iio iio_test.c)
-target_link_libraries(iio IIOLIB ${LIBS})
+ADD_EXECUTABLE (iio iio_test.c)
+TARGET_LINK_LIBRARIES(iio IIOLIB ${LIBS})
+SET_TARGET_PROPERTIES(iio PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
 
-add_executable (iion iio_test_named.c)
-target_link_libraries(iion IIOLIB ${LIBS})
+ADD_EXECUTABLE (iion iio_test_named.c)
+TARGET_LINK_LIBRARIES(iion IIOLIB ${LIBS})
+SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
 
 
 ##setup Config.cmake
 #
 #
-set(PARAMETROS_BASE_DIR "${PROJECT_SOURCE_DIR}")
-set(PARAMETROS_CMAKE_DIR "${PROJECT_BINARY_DIR}")
-set(IIO_LIBS ${LIBS} ${PROJECT_SOURCE_DIR}/libIIOLIB.a)
-set(IIO_INCLUDE ${PROJECT_SOURCE_DIR})
-message( "${PROJECT_BINARY_DIR}" )
-message( "${PROJECT_SOURCE_DIR}" )
-configure_file(iioConfig.cmake.in
+SET(PARAMETROS_BASE_DIR "${PROJECT_SOURCE_DIR}")
+SET(PARAMETROS_CMAKE_DIR "${PROJECT_BINARY_DIR}")
+SET(IIO_LIBS ${PROJECT_SOURCE_DIR}/libIIOLIB.a ${LIBS})
+SET(IIO_INCLUDE ${PROJECT_SOURCE_DIR})
+MESSAGE( "${PROJECT_BINARY_DIR}" )
+MESSAGE( "${PROJECT_SOURCE_DIR}" )
+CONFIGURE_FILE(iioConfig.cmake.in
    "${PROJECT_BINARY_DIR}/iioConfig.cmake" @ONLY)
 
