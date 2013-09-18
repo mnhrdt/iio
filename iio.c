@@ -119,7 +119,7 @@
 	fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__PRETTY_FUNCTION__);\
 	fprintf(stderr,__VA_ARGS__);} while(0)
 #else//IIO_SHOW_DEBUG_MESSAGES
-#  define IIO_DEBUG(...) do { do_nop("",__VA_ARGS__); } while(0) /* no-res */
+#  define IIO_DEBUG(...) do { ; } while(0) /* nothing */
 #endif//IIO_SHOW_DEBUG_MESSAGES
 
 //
@@ -193,13 +193,6 @@ static const char *myname(void) { return ""; }
 //{
 //	if (setup) {
 //}
-
-static void do_nop(const char *x, ...)
-{
-	va_list argp;
-	va_start(argp, x);
-	va_end(argp);
-}
 
 static void fail(const char *fmt, ...) __attribute__((noreturn,format(printf,1,2)));
 static void fail(const char *fmt, ...)
@@ -2181,7 +2174,6 @@ static int read_beheaded_whatever(struct iio_image *x,
 	int r = system(command);
 	IIO_DEBUG("command returned %d\n", r);
 	if (r) fail("could not run command \"%s\" successfully", command);
-
 	FILE *f = xfopen(ppmname, "r");
 	r = read_image_f(x, f);
 	xfclose(f);
