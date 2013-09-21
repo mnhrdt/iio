@@ -119,7 +119,7 @@
 	fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__PRETTY_FUNCTION__);\
 	fprintf(stderr,__VA_ARGS__);} while(0)
 #else//IIO_SHOW_DEBUG_MESSAGES
-#  define IIO_DEBUG(...) do { do_nop("",__VA_ARGS__); } while(0) /* no-res */
+#  define IIO_DEBUG(...) do { ; } while(0) /* nothing */
 #endif//IIO_SHOW_DEBUG_MESSAGES
 
 //
@@ -135,7 +135,7 @@
 
 // typedefs {{{1
 
-typedef long long longong;
+typedef long long longlong;
 typedef long double longdouble;
 
 
@@ -193,13 +193,6 @@ static const char *myname(void) { return ""; }
 //{
 //	if (setup) {
 //}
-
-static void do_nop(const char *x, ...)
-{
-	va_list argp;
-	va_start(argp, x);
-	va_end(argp);
-}
 
 static void fail(const char *fmt, ...) __attribute__((noreturn,format(printf,1,2)));
 static void fail(const char *fmt, ...)
@@ -286,7 +279,6 @@ static FILE *xfopen(const char *s, const char *p)
 	if (f == NULL)
 		fail("can not open file \"%s\" in mode \"%s\"",// (%s)",
 				s, p);//, strerror(errno));
-	//global_variable_containing_the_name_of_the_last_opened_file = (char*)s;
 	global_variable_containing_the_name_of_the_last_opened_file = s;
 	return f;
 }
@@ -300,7 +292,7 @@ static void xfclose(FILE *f)
 	}
 }
 
-static int pilla_caracter_segur(FILE *f)
+static int pick_char_for_sure(FILE *f)
 {
 	int c = getc(f);
 	if (EOF == c)
@@ -309,37 +301,37 @@ static int pilla_caracter_segur(FILE *f)
 	return c;
 }
 
-static void menja_espais(FILE *f)
+static void eat_spaces(FILE *f)
 {
-	//IIO_DEBUG("inside menja espais\n");
+	//IIO_DEBUG("inside eat spaces\n");
 	int c;
 	do
-		c = pilla_caracter_segur(f);
+		c = pick_char_for_sure(f);
 	while (isspace(c));
 	ungetc(c, f);
 }
 
-static void menja_linia(FILE *f)
+static void eat_line(FILE *f)
 {
-	//IIO_DEBUG("inside menja linia\n");
-	while (pilla_caracter_segur(f) != '\n')
+	//IIO_DEBUG("inside eat line\n");
+	while (pick_char_for_sure(f) != '\n')
 		;
 }
 
-static void menja_espais_i_comentaris(FILE *f)
+static void eat_spaces_and_comments(FILE *f)
 {
-	//IIO_DEBUG("inside menja espais i comentaris\n");
+	//IIO_DEBUG("inside eat spaces and comments\n");
 	int c, comment_char = '#';
-	menja_espais(f);
-uopsala:
-	c = pilla_caracter_segur(f);
+	eat_spaces(f);
+uppsala:
+	c = pick_char_for_sure(f);
 	if (c == comment_char)
 	{
-		menja_linia(f);
-		menja_espais(f);
+		eat_line(f);
+		eat_spaces(f);
 	} else
 		ungetc(c, f);
-	if (c == comment_char) goto uopsala;
+	if (c == comment_char) goto uppsala;
 }
 
 
@@ -350,7 +342,7 @@ uopsala:
 // functions.  It could be safely eliminated, and this information be passed as
 // five or six variables.
 struct iio_image {
-	int dimension;        // 1, 2, 3 or 4
+	int dimension;        // 1, 2, 3 or 4, typically
 	int sizes[IIO_MAX_DIMENSION];
 	int pixel_dimension;
 	int type;             // IIO_TYPE_*
@@ -365,8 +357,6 @@ struct iio_image {
 
 
 // struct iio_image management {{{1
-
-// TODO: reduce the silly number of constructors to 1
 
 static void iio_image_assert_struct_consistency(struct iio_image *x)
 {
@@ -482,24 +472,6 @@ static int iio_image_number_of_samples(struct iio_image *x)
 }
 
 // internal API
-//static int iio_image_data_size(struct iio_image *x)
-//{
-//	return iio_type_size(x->type) * iio_image_number_of_samples(x);
-//}
-
-// internal API
-//static bool iio_image_sample_integerP(struct iio_image *x)
-//{
-//	if (false
-//			|| x->type == IIO_TYPE_HALF
-//			|| x->type == IIO_TYPE_FLOAT
-//			|| x->type == IIO_TYPE_DOUBLE
-//			|| x->type == IIO_TYPE_LONGDOUBLE
-//	   ) return false;
-//	else return true;
-//}
-
-// internal API
 static size_t  iio_image_sample_size(struct iio_image *x)
 {
 	return iio_type_size(x->type);
@@ -552,53 +524,6 @@ static void iio_print_image_info(FILE *f, struct iio_image *x)
 	fprintf(f, "data = %p\n", (void *)x->data);
 }
 
-
-//static void fill_canonic_type_descriptors(struct iio_image *x, int type)
-//{
-//	bool s; int i; int f;
-//	switch(type) {
-//	case IIO_TYPE_INT8:       s=true; i=1; f=0; break;
-//	case IIO_TYPE_INT16:      s=true; i=2; f=0; break;
-//	case IIO_TYPE_INT32:      s=true; i=4; f=0; break;
-//	case IIO_TYPE_INT64:      s=true; i=4; f=0; break;
-//	case IIO_TYPE_UINT8:      s=false; i=1; f=0; break;
-//	case IIO_TYPE_UINT16:     s=false; i=2; f=0; break;
-//	case IIO_TYPE_UINT32:     s=false; i=4; f=0; break;
-//	case IIO_TYPE_UINT64:     s=false; i=8; f=0; break;
-//	case IIO_TYPE_FLOAT:      s=false; i=0; f=4; break;
-//	case IIO_TYPE_DOUBLE:     s=false; i=0; f=8; break;
-//	case IIO_TYPE_HALF:       s=false; i=0; f=2; break;
-//	default: error("unrecognized type %d", type);
-//	}
-//	x->signedness = s;
-//	x->integer_size = i;
-//	x->float_size = f;
-//}
-
-
-//static size_t typesize(int type)
-//{
-//	switch(type) {
-//	case IIO_TYPE_CHAR: return sizeof(char);
-//	case IIO_TYPE_SHORT: return sizeof(short);
-//	case IIO_TYPE_INT: return sizeof(int);
-//	case IIO_TYPE_LONG: return sizeof(long);
-//	case IIO_TYPE_FLOAT: return sizeof(float);
-//	case IIO_TYPE_DOUBLE: return sizeof(double);
-//	default: return -1;
-//	}
-//}
-
-//static void fill_struct_2d(struct iio_image *x, int w, int h, int pd, int type,
-//		void *data)
-//{
-//	x->dimension = 2;
-//	x->type = type;
-//	x->pixel_dimension = pd;
-//	x->data = data;
-//	x->sizes[0] = w;
-//	x->sizes[1] = h;
-//}
 
 static void iio_image_fill(struct iio_image *x,
 		int dimension, int *sizes,
@@ -677,6 +602,7 @@ static void iio_image_build_independent(struct iio_image *x,
 
 // data conversion {{{1
 
+// macros to crop a numeric value
 #define T0(x) ((x)>0?(x):0)
 #define T8(x) ((x)>0?((x)<0xff?(x):0xff):0)
 #define T6(x) ((x)>0?((x)<0xffff?(x):0xffff):0)
@@ -1551,7 +1477,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 
 	// acquire memory block
 	uint32_t scanline_size = (w * spp * bps)/8;
-	int rbps = bps/8 ? bps/8 : 1;
+	int rbps = (bps/8) ? (bps/8) : 1;
 	uint32_t uscanline_size = w * spp * rbps;
 	IIO_DEBUG("bps = %d\n", (int)bps);
 	IIO_DEBUG("spp = %d\n", (int)spp);
@@ -1637,7 +1563,7 @@ static void llegeix_floats_en_bytes(FILE *don, float *on, int quants)
 	for (int i = 0; i < quants; i++)
 	{
 		float c;
-		c = pilla_caracter_segur(don);//iw810
+		c = pick_char_for_sure(don);//iw810
 		on[i] = c;
 	}
 }
@@ -1647,9 +1573,9 @@ static void llegeix_floats_en_shorts(FILE *don, float *on, int quants)
 	for (int i = 0; i < quants; i++)
 	{
 		float c;
-		c = pilla_caracter_segur(don);
+		c = pick_char_for_sure(don);
 		c *= 256;
-		c += pilla_caracter_segur(don);
+		c += pick_char_for_sure(don);
 		on[i] = c;
 	}
 }
@@ -1703,21 +1629,21 @@ static int read_beheaded_qnm(struct iio_image *x,
 	int c1 = header[0];
 	int c2 = header[1] - '0';
 	IIO_DEBUG("QNM reader (%c %d)...\n", c1, c2);
-	menja_espais_i_comentaris(f);
+	eat_spaces_and_comments(f);
 	if (1 != fscanf(f, "%d", &w)) return -1;
-	menja_espais_i_comentaris(f);
+	eat_spaces_and_comments(f);
 	if (1 != fscanf(f, "%d", &h)) return -2;
 	if (c1 == 'Q') {
 		if (1 != fscanf(f, "%d", &d)) return -3;
-		menja_espais_i_comentaris(f);
+		eat_spaces_and_comments(f);
 	}
 	if (c2 == 7 || c2 == 9) {
 		if (1 != fscanf(f, "%d", &pd)) return -4;
-		menja_espais_i_comentaris(f);
+		eat_spaces_and_comments(f);
 	}
 	if (1 != fscanf(f, "%d", &m)) return -5;
 	// maxval is ignored and the image is always read into floats
-	if (!isspace(pilla_caracter_segur(f))) return -6;
+	if (!isspace(pick_char_for_sure(f))) return -6;
 
 	bool use_ascii = (c2 == 2 || c2 == 3 || c2 == 7);
 	bool use_2d = (d == 1); if (!use_2d) assert(c1 == 'Q');
@@ -1733,7 +1659,7 @@ static int read_beheaded_qnm(struct iio_image *x,
 	IIO_DEBUG("QNM reader use_2d = %d\n", use_2d);
 	IIO_DEBUG("QNM reader use_ascii = %d\n", use_ascii);
 	int r = read_qnm_numbers(data, f, nn, m, use_ascii);
-	if (nn - r) return -7;
+	if (nn - r) return (xfree(data),-7);
 
 	x->dimension = use_2d ? 2 : 3;
 	x->sizes[0] = w;
@@ -1756,20 +1682,20 @@ static int read_beheaded_pcm(struct iio_image *x,
 	assert(nheader == 2);
 	int w, h;
 	float scale;
-	//menja_espais_i_comentaris(f);
+	//eat_spaces_and_comments(f);
 	if (1 != fscanf(f, " %d", &w)) return -1;
-	//menja_espais_i_comentaris(f);
+	//eat_spaces_and_comments(f);
 	if (1 != fscanf(f, " %d", &h)) return -2;
-	//menja_espais_i_comentaris(f);
+	//eat_spaces_and_comments(f);
 	if (1 != fscanf(f, " %g", &scale)) return -3;
-	if (!isspace(pilla_caracter_segur(f))) return -6;
+	if (!isspace(pick_char_for_sure(f))) return -6;
 
 	fprintf(stderr, "%d PCM w h scale = %d %d %g\n", nheader, w, h, scale);
 
 	assert(sizeof(float) == 4);
 	float *data = xmalloc(w * h * 2 * sizeof(float));
 	int r = fread(data, sizeof(float), w * h * 2, f);
-	if (r != w * h * 2) return -7;
+	if (r != w * h * 2) return (xfree(data),-7);
 	x->dimension = 2;
 	x->sizes[0] = w;
 	x->sizes[1] = h;
@@ -1805,8 +1731,8 @@ static int read_beheaded_pcm(struct iio_image *x,
 
 static uint16_t rim_getshort(FILE *f, bool swp)
 {
-	int a = pilla_caracter_segur(f);
-	int b = pilla_caracter_segur(f);
+	int a = pick_char_for_sure(f);
+	int b = pick_char_for_sure(f);
 	IIO_DEBUG("rgs %.2x%.2x\n", a, b);
 	assert(a >= 0);
 	assert(b >= 0);
@@ -1820,10 +1746,10 @@ static uint16_t rim_getshort(FILE *f, bool swp)
 // Fascinating braindeadness.
 static uint32_t rim_getint(FILE *f, bool swp)
 {
-	int a = pilla_caracter_segur(f);
-	int b = pilla_caracter_segur(f);
-	int c = pilla_caracter_segur(f);
-	int d = pilla_caracter_segur(f);
+	int a = pick_char_for_sure(f);
+	int b = pick_char_for_sure(f);
+	int c = pick_char_for_sure(f);
+	int d = pick_char_for_sure(f);
 	IIO_DEBUG("rgi %.2x%.2x %.2x%.2x\n", a, b, c, d);
 	assert(a >= 0); assert(b >= 0); assert(c >= 0); assert(d >= 0);
 	assert(a < 256); assert(b < 256); assert(c < 256); assert(d < 256);
@@ -1844,7 +1770,7 @@ static int read_beheaded_rim_cimage(struct iio_image *x, FILE *f, bool swp)
 	IIO_DEBUG("RIM READER dy = %d\n", (int)dy);
 	FORI(28) rim_getshort(f, swp); // skip shit (ascii numbers and zeros)
 	FORI(lencomm) {
-		int c = pilla_caracter_segur(f); // skip further shit (comments)
+		int c = pick_char_for_sure(f); // skip further shit (comments)
 		(void)c;
 		IIO_DEBUG("RIM READER comment[%d] = '%c'\n", i, c);
 	}
@@ -1880,7 +1806,7 @@ static int read_beheaded_rim_fimage(struct iio_image *x, FILE *f, bool swp)
 	//IIO_DEBUG("RIM READER dy = %d\n", (int)dy);
 	FORI(28) rim_getshort(f, swp); // skip shit (ascii numbers and zeros)
 	FORI(lencomm) {
-		int c = pilla_caracter_segur(f); // skip further shit (comments)
+		int c = pick_char_for_sure(f); // skip further shit (comments)
 		(void)c;
 		//IIO_DEBUG("RIM READER comment[%d] = '%c'\n", i, c);
 	}
@@ -1987,11 +1913,11 @@ static int read_beheaded_pfm(struct iio_image *x,
 	assert('f' == tolower(header[1]));
 	int w, h, pd = isupper(header[1]) ? 3 : 1;
 	float scale;
-	if (!isspace(pilla_caracter_segur(f))) return -1;
+	if (!isspace(pick_char_for_sure(f))) return -1;
 	if (3 != fscanf(f, "%d %d\n%g", &w, &h, &scale)) return -2;
-	if (!isspace(pilla_caracter_segur(f))) return -3;
+	if (!isspace(pick_char_for_sure(f))) return -3;
 	float *data = xmalloc(w*h*4*pd);
-	if (1 != fread(data, w*h*4*pd, 1, f)) return -4;
+	if (1 != fread(data, w*h*4*pd, 1, f)) return (xfree(data),-4);
 	//if (scale < 0) switch_4endianness(data, w*h*pd);
 
 	x->dimension = 2;
@@ -2012,7 +1938,7 @@ static int read_beheaded_flo(struct iio_image *x,
 	int w = rim_getint(f, false);
 	int h = rim_getint(f, false);
 	float *data = xmalloc(w*h*2*sizeof*data);
-	if (1 != fread(data, w*h*4*2, 1, f)) return -1;
+	if (1 != fread(data, w*h*4*2, 1, f)) return (xfree(data),-1);
 
 	x->dimension = 2;
 	x->sizes[0] = w;
@@ -2030,12 +1956,14 @@ static int read_beheaded_juv(struct iio_image *x,
 {
 	char buf[255];
 	FORI(nheader) buf[i] = header[i];
-	FORI(255-nheader) buf[i+nheader] = pilla_caracter_segur(f);
+	FORI(255-nheader) buf[i+nheader] = pick_char_for_sure(f);
 	int w, h, r = sscanf(buf, "#UV {\n dimx %d dimy %d\n}\n", &w, &h);
 	if (r != 2) return -1;
 	size_t sf = sizeof(float);
-	float *u = xmalloc(w*h*sf); r = fread(u, sf, w*h, f);if(r!=w*h)return-2;
-	float *v = xmalloc(w*h*sf); r = fread(v, sf, w*h, f);if(r!=w*h)return-2;
+	float *u = xmalloc(w*h*sf); r = fread(u, sf, w*h, f);
+	if(r != w*h) return (xfree(u),-2);
+	float *v = xmalloc(w*h*sf); r = fread(v, sf, w*h, f);
+	if(r != w*h) return (xfree(u),xfree(v),-2);
 	float *uv = xmalloc(2*w*h*sf);
 	FORI(w*h) uv[2*i] = u[i];
 	FORI(w*h) uv[2*i+1] = v[i];
@@ -2066,9 +1994,9 @@ static int read_beheaded_lum(struct iio_image *x,
 	int w = lum_pickshort(header+2);
 	int h = lum_pickshort(header+6);
 	while (nheader++ < 0xf94)
-		pilla_caracter_segur(f);
+		pick_char_for_sure(f);
 	float *data = xmalloc(w*h*sizeof*data);
-	if (1 != fread(data, w*h*4, 1, f)) return -1;
+	if (1 != fread(data, w*h*4, 1, f)) return (xfree(data),-1);
 	switch_4endianness(data, w*h);
 	x->dimension = 2;
 	x->sizes[0] = w;
@@ -2246,7 +2174,6 @@ static int read_beheaded_whatever(struct iio_image *x,
 	int r = system(command);
 	IIO_DEBUG("command returned %d\n", r);
 	if (r) fail("could not run command \"%s\" successfully", command);
-
 	FILE *f = xfopen(ppmname, "r");
 	r = read_image_f(x, f);
 	xfclose(f);
@@ -2508,7 +2435,7 @@ static void iio_save_image_as_rim_cimage(const char *fname, struct iio_image *x)
 
 static char add_to_header_buffer(FILE *f, uint8_t *buf, int *nbuf, int bufmax)
 {
-	int c = pilla_caracter_segur(f);
+	int c = pick_char_for_sure(f);
 	if (*nbuf >= bufmax)
 		fail("buffer header too small (%d)", bufmax);
 	buf[*nbuf] = c;//iw810
