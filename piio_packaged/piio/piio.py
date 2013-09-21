@@ -19,7 +19,7 @@ def read(filename):
    '''
    IIO: numpyarray = read(filename)
    '''
-   from numpy import array, zeros
+   from numpy import array, zeros, ctypeslib
    from ctypes import c_int, c_float, c_void_p, CDLL, POINTER, cast, byref
 
    iioread = libiio.iio_read_image_float_vec
@@ -34,14 +34,14 @@ def read(filename):
    ptr = cast(tptr, c_float_p)
    #print w,h,nch
    
-   #nasty read data into array TODO IMPROVE using buffer copy
+   #nasty read data into array using buffer copy
    #http://stackoverflow.com/questions/4355524/getting-data-from-ctypes-array-into-numpy
    #http://docs.scipy.org/doc/numpy/reference/generated/numpy.frombuffer.html
-   data=zeros((h.value,w.value,nch.value))
-   for i in range(h.value):
-      for j in range(w.value):
-         for c in range(nch.value):
-            data[i,j,c] = ptr[(j + i*w.value)*nch.value + c]
+   
+   # this numpy array uses the memory provided by the c library, which will be freed
+   data_tmp = ctypeslib.as_array( ptr, (h.value,w.value,nch.value) )
+   # so we copy it to the definitive array before the free
+   data = data_tmp.copy()
    
    # free the memory
    iiofreemem = libiio.freemem
