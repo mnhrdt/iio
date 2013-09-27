@@ -119,7 +119,7 @@
 	fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__PRETTY_FUNCTION__);\
 	fprintf(stderr,__VA_ARGS__);} while(0)
 #else//IIO_SHOW_DEBUG_MESSAGES
-#  define IIO_DEBUG(...) do { ; } while(0) /* nothing */
+#  define IIO_DEBUG(...) do { do_nop(__VA_ARGS__); } while(0) /* nothing */
 #endif//IIO_SHOW_DEBUG_MESSAGES
 
 //
@@ -223,6 +223,13 @@ static void fail(const char *fmt, ...)
 	exit(*(int *)0x43);
 #  endif//NDEBUG
 #endif//IIO_ABORT_ON_ERROR
+}
+
+static void do_nop(void *p, ...)
+{
+	va_list argp;
+	va_start(argp, p);
+	va_end(argp);
 }
 
 static void *xmalloc(size_t size)
@@ -1271,21 +1278,21 @@ static int read_beheaded_png(struct iio_image *x,
 			;
 	png_read_png(pp, pi, transforms, NULL);
 	png_uint_32 w, h;
-	int channels, rowbytes;
-	int depth, color;//, interl, compr, filt;
+	int channels;//, rowbytes;
+	int depth;//, color;//, interl, compr, filt;
 	w = png_get_image_width(pp, pi);
 	h = png_get_image_height(pp, pi);
 	//png_get_IHDR(pp, pi, &w, &h, &depth, &color, &interl, &compr, &filt);
 	channels = png_get_channels(pp, pi);
-	rowbytes = png_get_rowbytes(pp, pi);
+	//rowbytes = png_get_rowbytes(pp, pi);
 	depth = png_get_bit_depth(pp, pi);
-	color = png_get_color_type(pp, pi);
+	//color = png_get_color_type(pp, pi);
 	IIO_DEBUG("png get width = %d\n", (int)w);
 	IIO_DEBUG("png get height = %d\n", (int)h);
 	IIO_DEBUG("png get channels = %d\n", channels);
-	IIO_DEBUG("png get rowbytes = %d\n", rowbytes);
+	//IIO_DEBUG("png get rowbytes = %d\n", rowbytes);
 	IIO_DEBUG("png get depth = %d\n", depth);
-	IIO_DEBUG("png get color = %d\n", color);
+	//IIO_DEBUG("png get color = %d\n", color);
 	//IIO_DEBUG("png ihdr width = %d\n", (int)w);
 	//IIO_DEBUG("png ihdr height = %d\n", (int)h);
 	//IIO_DEBUG("png ihdr depth = %d\n", depth);
@@ -1832,9 +1839,9 @@ static int read_beheaded_rim_ccimage(struct iio_image *x, FILE *f, bool swp)
 	uint32_t pm_np = rim_getint(f, swp);
 	uint32_t pm_nrow = rim_getint(f, swp);
 	uint32_t pm_ncol = rim_getint(f, swp);
-	uint32_t pm_band = rim_getint(f, swp);
+	uint32_t pm_band = rim_getint(f, swp);(void)pm_band;
 	uint32_t pm_form = rim_getint(f, swp);
-	uint32_t pm_cmtsize = rim_getint(f, swp);
+	uint32_t pm_cmtsize = rim_getint(f, swp);(void)pm_cmtsize;
 
 	IIO_DEBUG("RIM READER pm_np = %d\n", (int)pm_np);
 	IIO_DEBUG("RIM READER pm_nrow = %d\n", (int)pm_nrow);
