@@ -3109,12 +3109,14 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		iio_save_image_as_rim_cimage(filename, x);
 		return;
 	}
+#ifdef I_CAN_HAS_LIBTIFF
 	if (x->pixel_dimension != 1 && x->pixel_dimension != 3 && x->pixel_dimension != 4 && x->pixel_dimension != 2 )
 	{
 		iio_save_image_as_tiff_smarter(filename, x);
 		return;
 		//error("de moment només escrivim gris ó RGB");
 	}
+#endif//I_CAN_HAS_LIBTIFF
 	if (typ != IIO_TYPE_DOUBLE && typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8)
 		fail("de moment només fem floats o bytes (got %d)",typ);
 	int nsamp = iio_image_number_of_samples(x);
@@ -3132,6 +3134,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		x->data = old_data;
 		return;
 	}
+#ifdef I_CAN_HAS_LIBTIFF
 	if (true) {
 		if (false
 				|| string_suffix(filename, ".tiff")
@@ -3151,6 +3154,8 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 			return;
 		}
 	}
+#endif//I_CAN_HAS_LIBTIFF
+#ifdef I_CAN_HAS_LIBPNG
 	if (true) {
 		char *pngname = strstr(filename, "PNG:");
 		if (pngname == filename) {
@@ -3192,6 +3197,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 			return;
 		}
 	}
+#endif//I_CAN_HAS_LIBPNG
 	IIO_DEBUG("SIDEF:\n");
 #ifdef IIO_SHOW_DEBUG_MESSAGES
 	iio_print_image_info(stderr, x);
@@ -3249,9 +3255,12 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 			fwrite(data, w*h, 1, f);
 		}
 	} else
-			iio_save_image_as_tiff_smarter(filename, x);
-	//	error("\n\n\nThis particular data format can not yet be saved."
-	//			"\nPlease, ask enric.\n");
+#ifdef I_CAN_HAS_LIBTIFF
+		iio_save_image_as_tiff_smarter(filename, x);
+#else
+		fail("\n\n\nThis particular data format can not yet be saved."
+				"\nPlease, ask enric.\n");
+#endif//I_CAN_HAS_LIBTIFF
 	xfclose(f);
 }
 
