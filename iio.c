@@ -104,6 +104,7 @@
 #define IIO_FORMAT_JUV 20
 #define IIO_FORMAT_LUM 21
 #define IIO_FORMAT_PCM 22
+#define IIO_FORMAT_ASC 23
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -503,7 +504,8 @@ static const char *iio_strfmt(int format)
 	M(WHATEVER); M(QNM); M(PNG); M(JPEG);
 	M(TIFF); M(RIM); M(BMP); M(EXR); M(JP2);
 	M(VTK); M(CIMG); M(PAU); M(DICOM); M(PFM); M(NIFTI);
-	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(JUV);
+	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(LUM); M(JUV);
+	M(PCM); M(ASC);
 	M(UNRECOGNIZED);
 	default: fail("caca de la grossa");
 	}
