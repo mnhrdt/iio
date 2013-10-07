@@ -2159,6 +2159,42 @@ static int read_beheaded_exr(struct iio_image *x,
 
 #endif//I_CAN_HAS_LIBEXR
 
+
+
+// ASC reader {{{2
+static int read_beheaded_asc(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	assert(header[nheader-1] == '\n');
+	int n[4], r = sscanf(header, "%d %d %d %d\n", n, n+1, n+2, n+3);
+	if (r != 4) return 1;
+	x->dimension = 2;
+	x->sizes[0] = n[0];
+	x->sizes[1] = n[1];
+	x->sizes[2] = n[2];
+	if (n[2] > 1)
+		x->dimension = 3;
+	x->pixel_dimension = n[3];
+	x->type = IIO_TYPE_FLOAT;
+	int nsamples = iio_image_number_of_samples(x);
+	float *xdata = xmalloc(nsamples * sizeof*xdata);
+	read_qnm_numbers(xdata, f, nsamples, 0, true);
+	x->data = xmalloc(nsamples * sizeof*xdata);
+	recover_broken_pixels_float(x->data, xdata, n[0]*n[1]*n[2], n[3]);
+	xfree(xdata);
+	x->contiguous_data = false;
+	return 0;
+}
+
+// RAW reader {{{2
+
+// Note: there are two raw readers, either the user supplies the
+// dimensions and data format, or she defines where they can be found.
+// They are named, respectively, explicit and fancy.
+//
+// Note2: to be implemented
+
+
 // WHATEVER reader {{{2
 
 //static int read_image(struct iio_image*, const char *);
@@ -2453,6 +2489,18 @@ static char add_to_header_buffer(FILE *f, uint8_t *buf, int *nbuf, int bufmax)
 	return c;
 }
 
+static void line_to_header_buffer(FILE *f, uint8_t *buf, int *nbuf, int bufmax)
+{
+	while (*nbuf < bufmax)
+	{
+		int c = pick_char_for_sure(f);
+		buf[*nbuf] = c;
+		*nbuf += 1;
+		if (c == '\n')
+			break;
+	}
+}
+
 static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 {
 	assert(sizeof(uint8_t)==sizeof(char));
@@ -2534,6 +2582,12 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 	if (b[8]=='F'&&b[9]=='L'&&b[10]=='O'&&b[11]=='A')
 		return IIO_FORMAT_LUM;
 
+	if (!strchr((char*)b, '\n'))
+		line_to_header_buffer(f, b, nbuf, bufmax);
+	int t[4];
+	if (4 == sscanf((char*)b, "%d %d %d %d\n", t, t+1, t+2, t+3) && t[2]==1)
+		return IIO_FORMAT_ASC;
+
 	return IIO_FORMAT_UNRECOGNIZED;
 }
 
@@ -2553,6 +2607,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_JUV:   return read_beheaded_juv (x, f, h, hn);
 	case IIO_FORMAT_LUM:   return read_beheaded_lum (x, f, h, hn);
 	case IIO_FORMAT_PCM:   return read_beheaded_pcm (x, f, h, hn);
+	case IIO_FORMAT_ASC:   return read_beheaded_asc (x, f, h, hn);
 	case IIO_FORMAT_BMP:   return read_beheaded_bmp (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
@@ -2609,7 +2664,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 static int read_image_f(struct iio_image *x, FILE *f)
 {
 	int bufmax = 0x100, nbuf, format;
-	char buf[bufmax];
+	char buf[0x100] = {0};
 	format = guess_format(f, buf, &nbuf, bufmax);
 	IIO_DEBUG("iio file format guess: %s {%d}\n", iio_strfmt(format), nbuf);
 	assert(nbuf > 0);
