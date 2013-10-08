@@ -2255,13 +2255,13 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 
 // get an integer field from a data file, whose position
 // and type is determined by "tok"
-static int raw_gfp(void *dat, size_t siz, char *tok, int endianness)
+static int raw_gfp(void *dat, int siz, char *tok, int endianness)
 {
 	int fpos, fsiz = -4;
 	if (2 == sscanf(tok, "%d/%d", &fpos, &fsiz));
 	else if (1 == sscanf(tok, "%d", &fpos));
 	else return 0;
-	fprintf(stderr, "raw gfp tok=%s fpos=%d fiz=%d\n", tok, fpos, fsiz);
+	IIO_DEBUG(stderr, "raw gfp tok=%s fpos=%d fiz=%d\n", tok, fpos, fsiz);
 	void *pvalue = fpos + (char*)dat;
 	if (fpos < 0 || abs(fsiz) + fpos > siz)
 		fail("can not read field beyond data size");
