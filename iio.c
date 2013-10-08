@@ -497,6 +497,20 @@ static const char *iio_strtyp(int type)
 #undef M
 }
 
+static int iio_inttyp(const char *typename)
+{
+	int n = strlen(typename);
+	char utyp[n+1]; utyp[n] = '\0';
+	for (int i = 0; i < n; i++)
+		utyp[i] = toupper(typename[i]);
+#define M(t) if(!strcmp(utyp,#t))return IIO_TYPE_ ## t
+	M(INT8); M(UINT8); M(INT16); M(UINT16); M(INT32); M(UINT32); M(INT64);
+	M(UINT64); M(FLOAT); M(DOUBLE); M(LONGDOUBLE); M(HALF); M(UINT1);
+	M(UINT2); M(UINT4); M(CHAR); M(SHORT); M(INT); M(LONG); M(LONGLONG);
+#undef M
+	fail("unrecognized typename \"%s\"", typename);
+}
+
 static const char *iio_strfmt(int format)
 {
 #define M(f) case IIO_FORMAT_ ## f: return #f
@@ -1365,7 +1379,7 @@ static int read_whole_jpeg(struct iio_image *x, FILE *f)
 	size[0] = cinfo->image_width;
 	size[1] = cinfo->image_height;
 	depth = cinfo->num_components;
-	IIO_DEBUG("jpeg header widht = %d\n", size[0]);
+	IIO_DEBUG("jpeg header width = %d\n", size[0]);
 	IIO_DEBUG("jpeg header height = %d\n", size[1]);
 	IIO_DEBUG("jpeg header colordepth = %d\n", depth);
 	iio_image_build_independent(x, 2, size, IIO_TYPE_CHAR, depth);
@@ -2194,6 +2208,124 @@ static int read_beheaded_asc(struct iio_image *x,
 //
 // Note2: to be implemented
 
+// if f ~ /RAW[.*]:.*/ return the position of the colon
+static char *raw_prefix(const char *f)
+{
+	if (f != strstr(f, "RAW["))
+		return NULL;
+	char *colon = strchr(f, ':');
+	if (!colon || colon[-1] != ']')
+		return NULL;
+	return colon;
+}
+
+// explicit raw reader (input = a given block of memory)
+static int parse_raw_binary_image_explicit(struct iio_image *x,
+		void *data, size_t ndata,
+		int w, int h, int pd,
+		int header_bytes, int sample_type,
+		bool broken_pixels, bool endianness)
+{
+	size_t nsamples = w*h*pd;
+	size_t ss = iio_type_size(sample_type);
+	if (ndata != header_bytes + nsamples*ss) {
+		fprintf(stderr, "bad raw file size (%d != %d + %d)",
+				ndata, header_bytes, nsamples);
+		return 1;
+	}
+	int sizes[2] = {w, h};
+	iio_image_build_independent(x, 2, sizes, sample_type, pd);
+	size_t n = nsamples * ss;
+	memcpy(x->data, header_bytes + (char*)data, n);
+	if (endianness)
+		switch_4endianness(x->data, nsamples);
+	return 0;
+}
+
+static int read_raw_named_image_f(struct iio_image *x, const char *filename)
+{
+	char *colon = raw_prefix(filename);
+	assert(colon);
+	size_t desclen = colon - filename - 5;
+	char desc[desclen+1];
+	memcpy(desc, filename+4, desclen);
+	desc[desclen] = '\0';
+	assert(desclen == strlen(desc));
+	IIO_DEBUG("raw whole filename = %s\n", filename);
+	IIO_DEBUG("raw file part = %s\n", colon+1);
+	IIO_DEBUG("raw description = %s\n", desc);
+
+	int width = -1;
+	int height = -1;
+	int pixel_dimension = 1;
+	int brokenness = 0;
+	int endianness = 0;
+	int sample_type = IIO_TYPE_UINT8;
+	int offset = -1;
+
+	char *delim = ",", *tok = strtok(desc, delim);
+	while (tok) {
+		IIO_DEBUG("\ttoken = %s\n", tok);
+		switch(*tok) {
+		case 'w': width           = atoi(1+tok);       break;
+		case 'h': height          = atoi(1+tok);       break;
+		case 'p': pixel_dimension = atoi(1+tok);       break;
+		case 'o': offset          = atoi(1+tok);       break;
+		case 'b': brokenness      = 1;                 break;
+		case 'e': endianness      = 1;                 break;
+		case 't': sample_type     = iio_inttyp(1+tok); break;
+		}
+		tok = strtok(NULL, delim);
+	}
+	int sample_size = iio_type_size(sample_type);
+
+	IIO_DEBUG("w = %d\n", width);
+	IIO_DEBUG("h = %d\n", height);
+	IIO_DEBUG("p = %d\n", pixel_dimension);
+	IIO_DEBUG("o = %d\n", offset);
+	IIO_DEBUG("b = %d\n", brokenness);
+	IIO_DEBUG("t = %s\n", iio_strtyp(sample_type));
+
+	long file_size;
+	void *file_contents = NULL;
+	{
+		FILE *f = xfopen(colon+1, "r");
+		file_contents = load_rest_of_file(&file_size, f, NULL, 0);
+		xfclose(f);
+	}
+
+	// estimate missing dimensions
+	IIO_DEBUG("before estimation w=%d h=%d o=%d\n", width, height, offset);
+	int pd = pixel_dimension;
+	int ss = sample_size;
+	if (offset < 0 && width > 0 && height > 0)
+		offset = file_size - width * height * pd * ss;
+	if (width < 0 && offset > 0 && height > 0)
+		width = (file_size - offset)/(height * pd * ss);
+	if (height < 0 && offset > 0 && width > 0)
+		height = (file_size - offset)/(width * pd * ss);
+	if (offset < 0) offset = 0;
+	if (height < 0) height = file_size/(width * pd * ss);
+	if (width  < 0) width  = file_size/(height * pd * ss);
+	if (offset < 0 || width < 0 || height < 0)
+		fail("could not determine width, height and offset"
+				"(got %d,%d,%d)", width, height, offset);
+	IIO_DEBUG("after estimation w=%d h=%d o=%d\n", width, height, offset);
+
+	int used_data_size = offset+width*height*pd*ss;
+	if (used_data_size > file_size)
+		fail("raw file is not large enough");
+
+	int r = parse_raw_binary_image_explicit(x,
+			file_contents, file_size,
+			width, height, pixel_dimension,
+			offset, sample_type, brokenness, endianness);
+	xfree(file_contents);
+	return r;
+}
+
+
+
 
 // WHATEVER reader {{{2
 
@@ -2659,7 +2791,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 
 //
 // This function is the core of the library.
-// Everything passes through here.
+// Nearly everything passes through here (except the "raw"  images)
 //
 static int read_image_f(struct iio_image *x, FILE *f)
 {
@@ -2696,9 +2828,14 @@ static int read_image(struct iio_image *x, const char *fname)
 		return 0;
 	}
 
-	FILE *f = xfopen(fname, "r");
-	int r = read_image_f(x, f);
-	fclose(f);
+	int r;
+	if (raw_prefix(fname)) {
+		r = read_raw_named_image_f(x, fname);
+	} else {
+		FILE *f = xfopen(fname, "r");
+		r = read_image_f(x, f);
+		xfclose(f);
+	}
 
 	IIO_DEBUG("READ IMAGE return value = %d\n", r);
 	IIO_DEBUG("READ IMAGE dimension = %d\n", x->dimension);
