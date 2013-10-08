@@ -1914,6 +1914,17 @@ static int read_beheaded_rim(struct iio_image *x, FILE *f, char *h, int nh)
 		return read_beheaded_rim_ccimage(x, f, true);
 	return 1;
 }
+
+static void switch_2endianness(void *tt, int n)
+{
+	char *t = tt;
+	FORI(n) {
+		char tmp[2] = {t[0], t[1]};
+		t[0] = tmp[1];
+		t[1] = tmp[0];
+		t += 2;
+	}
+}
 static void switch_4endianness(void *tt, int n)
 {
 	char *t = tt;
@@ -2242,19 +2253,51 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 	return 0;
 }
 
-static int read_raw_named_image_f(struct iio_image *x, const char *filename)
+// get an integer field from a data file, whose position
+// and type is determined by "tok"
+static int raw_gfp(void *dat, size_t siz, char *tok, int endianness)
 {
-	char *colon = raw_prefix(filename);
-	assert(colon);
-	size_t desclen = colon - filename - 5;
-	char desc[desclen+1];
-	memcpy(desc, filename+4, desclen);
-	desc[desclen] = '\0';
-	assert(desclen == strlen(desc));
-	IIO_DEBUG("raw whole filename = %s\n", filename);
-	IIO_DEBUG("raw file part = %s\n", colon+1);
-	IIO_DEBUG("raw description = %s\n", desc);
+	int fpos, fsiz = -4;
+	if (2 == sscanf(tok, "%d/%d", &fpos, &fsiz));
+	else if (1 == sscanf(tok, "%d", &fpos));
+	else return 0;
+	fprintf(stderr, "raw gfp tok=%s fpos=%d fiz=%d\n", tok, fpos, fsiz);
+	void *pvalue = fpos + (char*)dat;
+	if (fpos < 0 || abs(fsiz) + fpos > siz)
+		fail("can not read field beyond data size");
+	if (endianness && abs(fsiz)==2) switch_2endianness(pvalue, 1);
+	if (endianness && abs(fsiz)==4) switch_4endianness(pvalue, 1);
+	switch(fsiz) {
+	case  1: return *( uint8_t*)pvalue;
+	case  2: return *(uint16_t*)pvalue;
+	case  4: return *(uint32_t*)pvalue;
+	case -1: return *(  int8_t*)pvalue;
+	case -2: return *( int16_t*)pvalue;
+	case -4: return *( int32_t*)pvalue;
+	default: fail("unrecognized field size %d", fsiz);
+	}
+}
 
+static int read_raw_named_image(struct iio_image *x, const char *filespec)
+{
+	// filespec => description + filename
+	char *colon = raw_prefix(filespec);
+	size_t desclen = colon - filespec - 5;
+	char description[desclen+1];
+	char *filename = colon + 1;
+	memcpy(description, filespec+4, desclen);
+	description[desclen] = '\0';
+
+	// read data from file
+	long file_size;
+	void *file_contents = NULL;
+	{
+		FILE *f = xfopen(filename, "r");
+		file_contents = load_rest_of_file(&file_size, f, NULL, 0);
+		xfclose(f);
+	}
+
+	// fill-in data description
 	int width = -1;
 	int height = -1;
 	int pixel_dimension = 1;
@@ -2263,14 +2306,22 @@ static int read_raw_named_image_f(struct iio_image *x, const char *filename)
 	int sample_type = IIO_TYPE_UINT8;
 	int offset = -1;
 
-	char *delim = ",", *tok = strtok(desc, delim);
+	// parse description string
+	char *delim = ",", *tok = strtok(description, delim);
+	int field;
 	while (tok) {
 		IIO_DEBUG("\ttoken = %s\n", tok);
+		if (tok[1] == '@')
+			field = raw_gfp(file_contents, file_size, 2+tok,
+					endianness);
+		else
+			field = atoi(1+tok);
+		IIO_DEBUG("\tfield=%d\n", field);
 		switch(*tok) {
-		case 'w': width           = atoi(1+tok);       break;
-		case 'h': height          = atoi(1+tok);       break;
-		case 'p': pixel_dimension = atoi(1+tok);       break;
-		case 'o': offset          = atoi(1+tok);       break;
+		case 'w': width           = field;       break;
+		case 'h': height          = field;       break;
+		case 'p': pixel_dimension = field;       break;
+		case 'o': offset          = field;       break;
 		case 'b': brokenness      = 1;                 break;
 		case 'e': endianness      = 1;                 break;
 		case 't': sample_type     = iio_inttyp(1+tok); break;
@@ -2285,14 +2336,6 @@ static int read_raw_named_image_f(struct iio_image *x, const char *filename)
 	IIO_DEBUG("o = %d\n", offset);
 	IIO_DEBUG("b = %d\n", brokenness);
 	IIO_DEBUG("t = %s\n", iio_strtyp(sample_type));
-
-	long file_size;
-	void *file_contents = NULL;
-	{
-		FILE *f = xfopen(colon+1, "r");
-		file_contents = load_rest_of_file(&file_size, f, NULL, 0);
-		xfclose(f);
-	}
 
 	// estimate missing dimensions
 	IIO_DEBUG("before estimation w=%d h=%d o=%d\n", width, height, offset);
@@ -2830,7 +2873,7 @@ static int read_image(struct iio_image *x, const char *fname)
 
 	int r;
 	if (raw_prefix(fname)) {
-		r = read_raw_named_image_f(x, fname);
+		r = read_raw_named_image(x, fname);
 	} else {
 		FILE *f = xfopen(fname, "r");
 		r = read_image_f(x, f);
