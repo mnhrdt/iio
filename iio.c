@@ -2022,9 +2022,30 @@ static int lum_pickshort(char *ss)
 	return 0x100*a + b;
 }
 
+static int read_beheaded_lum12(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	int w = *(uint32_t*)header;
+	int h = *(uint32_t*)(header+4);
+	while (nheader++ < 11968)
+		pick_char_for_sure(f);
+	uint16_t *data = xmalloc(w*h*sizeof*data);
+	if (1 != fread(data, w*h*2, 1, f)) return (xfree(data),-1);
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 1;
+	x->type = IIO_TYPE_UINT16;
+	x->contiguous_data = false;
+	x->data = data;
+	return 0;
+}
+
 static int read_beheaded_lum(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
+	if (header[8] == '1')
+		return read_beheaded_lum12(x, f, header, nheader);
 	int w = lum_pickshort(header+2);
 	int h = lum_pickshort(header+6);
 	while (nheader++ < 0xf94)
@@ -2261,7 +2282,7 @@ static int raw_gfp(void *dat, int siz, char *tok, int endianness)
 	if (2 == sscanf(tok, "%d/%d", &fpos, &fsiz));
 	else if (1 == sscanf(tok, "%d", &fpos));
 	else return 0;
-	IIO_DEBUG(stderr, "raw gfp tok=%s fpos=%d fiz=%d\n", tok, fpos, fsiz);
+	IIO_DEBUG("raw gfp tok=%s fpos=%d fiz=%d\n", tok, fpos, fsiz);
 	void *pvalue = fpos + (char*)dat;
 	if (fpos < 0 || abs(fsiz) + fpos > siz)
 		fail("can not read field beyond data size");
@@ -2755,6 +2776,8 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 	b[11] = add_to_header_buffer(f, b, nbuf, bufmax);
 
 	if (b[8]=='F'&&b[9]=='L'&&b[10]=='O'&&b[11]=='A')
+		return IIO_FORMAT_LUM;
+	if (b[8]=='1'&&b[9]=='2'&&b[10]=='L'&&b[11]=='I')
 		return IIO_FORMAT_LUM;
 
 	if (!strchr((char*)b, '\n'))
