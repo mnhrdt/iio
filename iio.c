@@ -342,6 +342,18 @@ uppsala:
 	if (c == comment_char) goto uppsala;
 }
 
+static void fill_temporary_filename(char *out)
+{
+#ifdef I_CAN_HAS_MKSTEMP
+		static char tfn[] = "/tmp/iio_temporary_file_XXXXXX\0";
+		int r = mkstemp(tfn);
+		if (r == -1) fail("caca [tfn]");
+#else
+		static char buf[L_tmpnam+1];
+		char *tfn = tmpnam(buf);
+#endif//I_CAN_HAS_MKSTEMP
+		strcpy(out, tfn);
+}
 
 
 // struct iio_image { ... }; {{{1
@@ -2261,7 +2273,7 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 	size_t nsamples = w*h*pd;
 	size_t ss = iio_type_size(sample_type);
 	if (ndata != header_bytes + nsamples*ss) {
-		fprintf(stderr, "bad raw file size (%d != %d + %d)",
+		fprintf(stderr, "bad raw file size (%zu != %d + %zu)",
 				ndata, header_bytes, nsamples);
 		return 1;
 	}
@@ -2871,6 +2883,8 @@ static int read_image_f(struct iio_image *x, FILE *f)
 
 static int read_image(struct iio_image *x, const char *fname)
 {
+	int r; // the return-value of this function
+
 #ifndef IIO_ABORT_ON_ERROR
 	if (setjmp(global_jump_buffer)) {
 		IIO_DEBUG("SOME ERROR HAPPENED AND WAS HANDLED\n");
@@ -2894,7 +2908,24 @@ static int read_image(struct iio_image *x, const char *fname)
 		return 0;
 	}
 
-	int r;
+
+#ifdef I_CAN_HAS_WGET
+	// check for URL
+	if (fname == strstr(fname, "http://")) {
+		// TODO: for security, sanitize the fname
+		char tfn[FILENAME_MAX], cmd[FILENAME_MAX];
+		fill_temporary_filename(tfn);
+		snprintf(cmd, FILENAME_MAX, "wget %s -q -O %s", fname, tfn);
+		int rsys = system(cmd);
+		if (rsys != 0) fail("system wget returned %d", rsys);
+		FILE *f = xfopen(tfn, "r");
+		r = read_image_f(x, f);
+		xfclose(f);
+		delete_temporary_file(tfn);
+
+	} else
+#endif//I_CAN_HAS_WGET
+
 	if (raw_prefix(fname)) {
 		r = read_raw_named_image(x, fname);
 	} else {
