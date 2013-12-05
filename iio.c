@@ -1452,6 +1452,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 {
 	// tries to read data in the correct format (via scanlines)
 	// if it fails, it tries to read ABGR data
+	TIFFSetWarningHandler(NULL);//suppress warnings
 
 	TIFF *tif = TIFFOpen(filename, "r");
 	if (!tif) fail("could not open TIFF file \"%s\"", filename);
