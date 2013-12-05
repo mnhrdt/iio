@@ -1532,8 +1532,9 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 		TIFFGetField(tif, TIFFTAG_TILEWIDTH, &tilewidth);
 		TIFFGetField(tif, TIFFTAG_TILELENGTH, &tilelength);
 
-		if (bps != 8)
-			fail("only byte-oriented tiles are supported");
+		if (bps < 8)
+			fail("only byte-oriented tiles are supported (%d)",bps);
+		int Bps = bps/8;
 
 		uint8_t *tbuf = xmalloc(tisize);
 		for (uint32_t tx = 0; tx < w; tx += tilewidth)
@@ -1543,13 +1544,14 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 			for (uint32_t j = 0; j < tilewidth; j++)
 			for (uint32_t i = 0; i < tilewidth; i++)
 			for (uint16_t l = 0; l < spp; l++)
+			for (int b = 0; b < Bps; b++)
 			{
 				uint32_t ii = i + tx;
 				uint32_t jj = j + ty;
 				if (ii < w && jj < h)
 				{
-					uint8_t s = tbuf[(j*tilewidth+i)*spp+l];
-					((uint8_t*)data)[(jj*w+ii)*spp+l] = s;
+				uint8_t s = tbuf[((j*tilewidth+i)*spp+l)*Bps+b];
+				((uint8_t*)data)[((jj*w+ii)*spp+l)*Bps+b] = s;
 				}
 			}
 		}
