@@ -2947,7 +2947,8 @@ static int read_image(struct iio_image *x, const char *fname)
 
 #ifdef I_CAN_HAS_WGET
 	// check for URL
-	if (fname == strstr(fname, "http://")) {
+	if (fname == strstr(fname, "http://")
+			|| fname==strstr(fname, "https://") ) {
 		// TODO: for security, sanitize the fname
 		char tfn[FILENAME_MAX], cmd[FILENAME_MAX];
 		fill_temporary_filename(tfn);
