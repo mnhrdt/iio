@@ -1525,6 +1525,39 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	//FORI(h*scanline_size) data[i] = 42;
 	uint8_t *buf = xmalloc(scanline_size);
 
+	// use a particular reader for tiled tiff
+	if (TIFFIsTiled(tif)) {
+		int tisize = TIFFTileSize(tif);
+		uint32_t tilewidth, tilelength;
+		TIFFGetField(tif, TIFFTAG_TILEWIDTH, &tilewidth);
+		TIFFGetField(tif, TIFFTAG_TILELENGTH, &tilelength);
+
+		if (bps != 8)
+			fail("only byte-oriented tiles are supported");
+
+		uint8_t *tbuf = xmalloc(tisize);
+		for (uint32_t tx = 0; tx < w; tx += tilewidth)
+		for (uint32_t ty = 0; ty < h; ty += tilelength)
+		{
+			r = TIFFReadTile(tif, tbuf, tx, ty, 0, 0);
+			for (uint32_t j = 0; j < tilewidth; j++)
+			for (uint32_t i = 0; i < tilewidth; i++)
+			for (uint16_t l = 0; l < spp; l++)
+			{
+				uint32_t ii = i + tx;
+				uint32_t jj = j + ty;
+				if (ii < w && jj < h)
+				{
+					uint8_t s = tbuf[(j*tilewidth+i)*spp+l];
+					((uint8_t*)data)[(jj*w+ii)*spp+l] = s;
+				}
+			}
+		}
+		xfree(tbuf);
+
+		//fail("tiled tiff not fully implemented yet");
+	} else
+
 	// dump scanline data
 	FORI(h) {
 		//r = TIFFReadScanline(tif, data + i * scanline_size, i,  0);
@@ -3338,11 +3371,25 @@ static bool this_float_is_actually_a_byte(float x)
 	return (x == floor(x)) && (x >= 0) && (x < 256);
 }
 
+static bool this_float_is_actually_a_short(float x)
+{
+	return (x == floor(x)) && (x >= 0) && (x < 65536);
+}
+
 static bool these_floats_are_actually_bytes(float *t, int n)
 {
 	IIO_DEBUG("checking %d floats for byteness (%p)\n", n, (void*)t);
 	FORI(n)
 		if (!this_float_is_actually_a_byte(t[i]))
+			return false;
+	return true;
+}
+
+static bool these_floats_are_actually_shorts(float *t, int n)
+{
+	IIO_DEBUG("checking %d floats for shortness (%p)\n", n, (void*)t);
+	FORI(n)
+		if (!this_float_is_actually_a_short(t[i]))
 			return false;
 	return true;
 }
@@ -3425,6 +3472,20 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		x->data = old_data;
 		return;
 	}
+	//else if (typ == IIO_TYPE_FLOAT &&
+	//		these_floats_are_actually_shorts(x->data, nsamp))
+	//{
+	//	void *old_data = x->data;
+	//	x->data = xmalloc(2*nsamp*sizeof(float));
+	//	memcpy(x->data, old_data, nsamp*sizeof(float));
+	//	iio_convert_samples(x, IIO_TYPE_UINT16);
+	//	//silly=false;
+	//	iio_save_image_default(filename, x); // recursive call
+	//	//silly=true;
+	//	xfree(x->data);
+	//	x->data = old_data;
+	//	return;
+	//}
 #ifdef I_CAN_HAS_LIBTIFF
 	if (true) {
 		if (false
