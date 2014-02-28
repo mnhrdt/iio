@@ -2014,6 +2014,7 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 		int header_bytes, int sample_type,
 		bool broken_pixels, bool endianness)
 {
+	(void)broken_pixels;
 	size_t nsamples = w*h*pd;
 	size_t ss = iio_type_size(sample_type);
 	if (ndata != header_bytes + nsamples*ss) {
@@ -2275,7 +2276,13 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 	default:
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
 	}
-	TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
+
+	// disable TIFF compression when saving large images
+	if (x->sizes[0] * x->sizes[1] > 2000*2000)
+		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
+	else
+		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+
 	switch(x->type) {
 	case IIO_TYPE_DOUBLE:
 	case IIO_TYPE_FLOAT: tsf = SAMPLEFORMAT_IEEEFP; break;
@@ -3055,7 +3062,7 @@ static bool these_floats_are_actually_bytes(float *t, int n)
 	return true;
 }
 
-static bool these_floats_are_actually_shorts(float *t, int n)
+inline static bool these_floats_are_actually_shorts(float *t, int n)
 {
 	IIO_DEBUG("checking %d floats for shortness (%p)\n", n, (void*)t);
 	FORI(n)
