@@ -2278,7 +2278,7 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 	}
 
 	// disable TIFF compression when saving large images
-	if (x->sizes[0] * x->sizes[1] > 2000*2000)
+	if (x->sizes[0] * x->sizes[1] < 2000*2000)
 		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
 	else
 		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
