@@ -266,6 +266,7 @@ void iio_save_image_float_split(char *filename, float *x, int w, int h, int pd);
 void iio_save_image_double_vec(char *filename, double *x, int w, int h, int pd);
 void iio_save_image_float(char *filename, float *x, int w, int h);
 void iio_save_image_double(char *filename, double *x, int w, int h);
+void iio_save_image_int(char *filename, int *x, int w, int h);
 void iio_save_image_uint8_vec(char *filename, uint8_t *x, int w, int h, int pd);
 void iio_save_image_uint16_vec(char *filename, uint16_t *x, int w, int h, int pd);
 void iio_save_image_uint8_matrix_rgb(char *f, unsigned char (**x)[3], int w, int h);

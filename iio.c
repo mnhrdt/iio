@@ -3354,6 +3354,20 @@ void iio_save_image_double(char *filename, double *data, int w, int h)
 	iio_save_image_default(filename, x);
 }
 
+void iio_save_image_int(char *filename, int *data, int w, int h)
+{
+	struct iio_image x[1];
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 1;
+	x->type = IIO_TYPE_INT;
+	x->data = data;
+	x->contiguous_data = false;
+	iio_save_image_default(filename, x);
+}
+
+
 void iio_save_image_uint8_vec(char *filename, uint8_t *data,
 		int w, int h, int pd)
 {
