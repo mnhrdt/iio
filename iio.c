@@ -2287,6 +2287,7 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 	case IIO_TYPE_DOUBLE:
 	case IIO_TYPE_FLOAT: tsf = SAMPLEFORMAT_IEEEFP; break;
 	case IIO_TYPE_INT8:
+	case IIO_TYPE_INT:
 	case IIO_TYPE_INT16:
 	case IIO_TYPE_INT32: tsf = SAMPLEFORMAT_INT; break;
 	case IIO_TYPE_UINT8:
@@ -3124,7 +3125,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		return;
 	}
 #endif//I_CAN_HAS_LIBTIFF
-	if (typ != IIO_TYPE_DOUBLE && typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8)
+	if (typ != IIO_TYPE_DOUBLE && typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8 && typ != IIO_TYPE_UINT32)
 		fail("de moment només fem floats o bytes (got %d)",typ);
 	int nsamp = iio_image_number_of_samples(x);
 	if (typ == IIO_TYPE_FLOAT &&
@@ -3174,6 +3175,16 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				x->data = old_data;
 				return;
 			}
+			if (typ == IIO_TYPE_INT || typ == IIO_TYPE_UINT32) {
+				void *old_data = x->data;
+				x->data = xmalloc(nsamp*sizeof(int));
+				memcpy(x->data, old_data, nsamp*sizeof(int));
+				iio_convert_samples(x, IIO_TYPE_UINT8);
+				iio_save_image_default(filename, x);//recursive
+				xfree(x->data);
+				x->data = old_data;
+				return;
+			}
 			iio_save_image_as_png(filename+4, x);
 			return;
 		}
@@ -3190,6 +3201,16 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				void *old_data = x->data;
 				x->data = xmalloc(nsamp*sizeof(float));
 				memcpy(x->data, old_data, nsamp*sizeof(float));
+				iio_convert_samples(x, IIO_TYPE_UINT8);
+				iio_save_image_default(filename, x);//recursive
+				xfree(x->data);
+				x->data = old_data;
+				return;
+			}
+			if (typ == IIO_TYPE_INT || typ == IIO_TYPE_UINT32) {
+				void *old_data = x->data;
+				x->data = xmalloc(nsamp*sizeof(int));
+				memcpy(x->data, old_data, nsamp*sizeof(int));
 				iio_convert_samples(x, IIO_TYPE_UINT8);
 				iio_save_image_default(filename, x);//recursive
 				xfree(x->data);
