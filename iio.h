@@ -90,6 +90,8 @@ void *iio_read_image_float_matrix_vec(const char *fnam, int *w, int *h, int *pd)
 double *iio_read_image_double(const char *fname, int *w, int *h);
 double *iio_read_image_double_vec(const char *fname, int *w, int *h, int *pd);
 
+int *iio_read_image_int(const char *fname, int *w, int *h);
+
 // All these functions are boring  variations, and they are defined at the
 // end of this file.  More interesting are the two following general
 // functions:

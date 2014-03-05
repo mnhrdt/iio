@@ -3046,6 +3046,26 @@ double *iio_read_image_double(const char *fname, int *w, int *h)
 }
 
 // API 2D
+int *iio_read_image_int(const char *fname, int *w, int *h)
+{
+	struct iio_image x[1];
+	int r = read_image(x, fname);
+	if (r) return rfail("could not read image");
+	if (x->dimension != 2) {
+		x->dimension = 2;
+		return rfail("non 2d image");
+	}
+	if (x->pixel_dimension == 3)
+		iio_hacky_uncolorize(x);
+	if (x->pixel_dimension != 1)
+		return rfail("non-scalar image");
+	*w = x->sizes[0];
+	*h = x->sizes[1];
+	iio_convert_samples(x, IIO_TYPE_INT);
+	return x->data;
+}
+
+// API 2D
 uint8_t *iio_read_image_uint8(const char *fname, int *w, int *h)
 {
 	return iio_read_image(fname, w, h, IIO_TYPE_UINT8);
