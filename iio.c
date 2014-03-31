@@ -337,7 +337,7 @@ static void fill_temporary_filename(char *out)
 #ifdef I_CAN_HAS_MKSTEMP
 		static char tfn[] = "/tmp/iio_temporary_file_XXXXXX\0";
 		int r = mkstemp(tfn);
-		if (r == -1) fail("caca [tfn]");
+		if (r == -1) fail("could not create temporary filename");
 #else
 		static char buf[L_tmpnam+1];
 		char *tfn = tmpnam(buf);
@@ -967,26 +967,8 @@ static void *load_rest_of_file(long *on, FILE *f, void *buf, size_t bufn)
 // Implementation: re-invent the wheel
 static char *put_data_into_temporary_file(void *filedata, size_t filesize)
 {
-#ifdef I_CAN_HAS_MKSTEMP
-	static char filename[] = "/tmp/iio_temporal_file_XXXXXX\0";
-	int r = mkstemp(filename);
-	if (r == -1) fail("caca [pditf]");
-#else
-	// WARNING XXX XXX XXX ERROR FIXME TODO WARNING:
-	// this function is not reentrant
-	// (this should not a problem unless reading images on a parallel loop)
-	static char buf[L_tmpnam+1];
-	//
-	// from TMPNAM(3):
-	//
-	//The  tmpnam()  function  returns  a pointer to a string that is a
-	//valid filename, and such that a file with this name did  not  exist
-	//at  some point  in  time, so that naive programmers may think it a
-	//suitable name for a temporary file.
-	//
-	char *filename = tmpnam(buf);
-	// MULTIPLE RACE CONDITIONS HERE
-#endif
+	static char filename[FILENAME_MAX];
+	fill_temporary_filename(filename);
 	FILE *f = xfopen(filename, "w");
 	int cx = fwrite(filedata, filesize, 1, f);
 	if (cx != 1) fail("fwrite to temporary file failed");
@@ -2316,14 +2298,8 @@ static void iio_save_image_as_tiff_smarter(const char *filename,
 		return;
 	}
 	if (0 == strcmp(filename, "-")) {
-#ifdef I_CAN_HAS_MKSTEMP
-		static char tfn[] = "/tmp/iio_temporal_tiff_XXXXXX\0";
-		int r = mkstemp(tfn);
-		if (r == -1) fail("caca [tiff smarter]");
-#else
-		static char buf[L_tmpnam+1];
-		char *tfn = tmpnam(buf);
-#endif//I_CAN_HAS_MKSTEMP
+		char tfn[FILENAME_MAX];
+		fill_temporary_filename(tfn);
 		iio_save_image_as_tiff(tfn, x);
 		FILE *f = xfopen(tfn, "r");
 		int c;
