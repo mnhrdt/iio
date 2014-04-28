@@ -218,6 +218,7 @@ interlacing, depending on the context.
 	- From signed integer to signed integer of larger size
 	- From floating point to floating point of larger size
 	- From signed or unsigned integer of 8 or 16 bits to float
+	- From signed or unsigned integer of 8, 16 or 32 bits to double
 
 * Slightly lossy conversions of samples:
 
@@ -360,7 +361,7 @@ c99 try_iio.c iio.c -ljpeg
 COMPILERS
 *********
 
-for CC in gcc icc suncc pcc lcc clang; do
+for CC in gcc icc suncc tcc pcc lcc clang; do
 	$CC -c iio.c
 done
 

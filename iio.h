@@ -293,4 +293,6 @@ void iio_save_image_uint8_matrix(char *f, unsigned char **x, int w, int h);
 //#define I_CAN_HAS_LIBEXR
 #define I_CAN_HAS_WGET
 
+#define I_CAN_KEEP_TMP_FILES
+
 #endif//_IIO_H

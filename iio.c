@@ -335,9 +335,12 @@ uppsala:
 static void fill_temporary_filename(char *out)
 {
 #ifdef I_CAN_HAS_MKSTEMP
-		static char tfn[] = "/tmp/iio_temporary_file_XXXXXX\0";
+		char tfn[] = "/tmp/iio_tmp_file_XXXXXX\0";
 		int r = mkstemp(tfn);
-		if (r == -1) fail("could not create temporary filename");
+		if (r == -1) {
+			perror("hola");
+			fail("could not create tmp filename");
+		}
 #else
 		static char buf[L_tmpnam+1];
 		char *tfn = tmpnam(buf);
@@ -979,10 +982,10 @@ static char *put_data_into_temporary_file(void *filedata, size_t filesize)
 static void delete_temporary_file(char *filename)
 {
 	(void)filename;
-#ifdef NDEBUG
+#ifdef I_CAN_KEEP_TMP_FILES
 	remove(filename);
 #else
-	IIO_DEBUG("WARNING: kept temporary file %s around\n", filename);
+	fprintf(stderr, "WARNING: kept temporary file %s around\n", filename);
 #endif
 }
 
@@ -1253,6 +1256,11 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	}
 	if (bps >= 8) assert(bps == 8*iio_type_size(fmt_iio));
 
+	uint16_t planarity;
+	r = TIFFGetField(tif, TIFFTAG_PLANARCONFIG, &planarity);
+	if (r != 1) planarity = PLANARCONFIG_CONTIG;
+	bool broken = planarity == PLANARCONFIG_SEPARATE;
+
 
 	// acquire memory block
 	uint32_t scanline_size = (w * spp * bps)/8;
@@ -1263,7 +1271,9 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	IIO_DEBUG("sls = %d\n", (int)scanline_size);
 	int sls = TIFFScanlineSize(tif);
 	IIO_DEBUG("sls(r) = %d\n", (int)sls);
-	assert((int)scanline_size == sls);
+	if ((int)scanline_size != sls)
+		fprintf(stderr, "scanline_size,sls = %d,%d\n", (int)scanline_size,sls);
+	//assert((int)scanline_size == sls);
 	scanline_size = sls;
 	uint8_t *data = xmalloc(w * h * spp * rbps);
 	uint8_t *buf = xmalloc(scanline_size);
@@ -1274,28 +1284,45 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 		uint32_t tilewidth, tilelength;
 		TIFFGetField(tif, TIFFTAG_TILEWIDTH, &tilewidth);
 		TIFFGetField(tif, TIFFTAG_TILELENGTH, &tilelength);
+		IIO_DEBUG("tilewidth = %u\n", tilewidth);
+		IIO_DEBUG("tilelength = %u\n", tilelength);
+		IIO_DEBUG("tisize = %d (%u)\n", tisize, tilewidth*tilelength);
 
 		if (bps < 8)
 			fail("only byte-oriented tiles are supported (%d)",bps);
 		int Bps = bps/8;
 
-		uint8_t *tbuf = xmalloc(tisize);
+		IIO_DEBUG("bps = %u\n", bps);
+		IIO_DEBUG("Bps = %d\n", Bps);
+
+		uint8_t *tbuf = xmalloc(tisize*Bps*spp);
 		for (uint32_t tx = 0; tx < w; tx += tilewidth)
 		for (uint32_t ty = 0; ty < h; ty += tilelength)
 		{
-			r = TIFFReadTile(tif, tbuf, tx, ty, 0, 0);
-			for (uint32_t j = 0; j < tilewidth; j++)
-			for (uint32_t i = 0; i < tilewidth; i++)
+			IIO_DEBUG("tile at %u %u\n", tx, ty);
+			if (!broken) TIFFReadTile(tif, tbuf, tx, ty, 0, 0);
 			for (uint16_t l = 0; l < spp; l++)
+			{
+			int L = l, Spp = spp;
+			if (broken) {
+				TIFFReadTile(tif, tbuf, tx, ty, 0, l);
+				L = 0; 
+				Spp = 1;
+			}
+			for (uint32_t j = 0; j < tilelength; j++)
+			for (uint32_t i = 0; i < tilewidth; i++)
 			for (int b = 0; b < Bps; b++)
 			{
 				uint32_t ii = i + tx;
 				uint32_t jj = j + ty;
 				if (ii < w && jj < h)
 				{
-				uint8_t s = tbuf[((j*tilewidth+i)*spp+l)*Bps+b];
-				((uint8_t*)data)[((jj*w+ii)*spp+l)*Bps+b] = s;
+				int idx_i = ((j*tilewidth + i)*Spp + L)*Bps + b;
+				int idx_o = ((jj*w + ii)*spp + l)*Bps + b;
+				uint8_t s = tbuf[idx_i];
+				((uint8_t*)data)[idx_o] = s;
 				}
+			}
 			}
 		}
 		xfree(tbuf);
