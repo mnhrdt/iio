@@ -2239,6 +2239,7 @@ static void iio_save_image_as_png(const char *filename, struct iio_image *x)
 			PNG_FILTER_TYPE_DEFAULT);
 	png_set_rows(pp, pi, row);
 	int transforms = PNG_TRANSFORM_IDENTITY;
+	if (bit_depth == 16) transforms |= PNG_TRANSFORM_SWAP_ENDIAN;
 	png_write_png(pp, pi, transforms, NULL);
 	xfclose(f);
 	png_destroy_write_struct(&pp, &pi);
@@ -3148,7 +3149,7 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 		return;
 	}
 #endif//I_CAN_HAS_LIBTIFF
-	if (typ != IIO_TYPE_DOUBLE && typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8 && typ != IIO_TYPE_UINT32)
+	if (typ != IIO_TYPE_DOUBLE && typ != IIO_TYPE_FLOAT && typ != IIO_TYPE_UINT8 && typ != IIO_TYPE_INT16 && typ != IIO_TYPE_INT8 && typ != IIO_TYPE_UINT32 && typ != IIO_TYPE_UINT16)
 		fail("de moment només fem floats o bytes (got %d)",typ);
 	int nsamp = iio_image_number_of_samples(x);
 	if (typ == IIO_TYPE_FLOAT &&
@@ -3209,6 +3210,23 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 				return;
 			}
 			iio_save_image_as_png(filename+4, x);
+			return;
+		}
+	}
+	if (true) {
+		char *pngname = strstr(filename, "PNG16:");
+		if (pngname == filename) {
+			if (typ != IIO_TYPE_UINT16) {
+				void *old_data = x->data;
+				x->data = xmalloc(nsamp*sizeof(float));
+				memcpy(x->data, old_data, nsamp*sizeof(float));
+				iio_convert_samples(x, IIO_TYPE_UINT16);
+				iio_save_image_default(filename, x);//recursive
+				xfree(x->data);
+				x->data = old_data;
+				return;
+			}
+			iio_save_image_as_png(filename+6, x);
 			return;
 		}
 	}
