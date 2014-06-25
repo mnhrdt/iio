@@ -1300,7 +1300,10 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 		for (uint32_t ty = 0; ty < h; ty += tilelength)
 		{
 			IIO_DEBUG("tile at %u %u\n", tx, ty);
-			if (!broken) TIFFReadTile(tif, tbuf, tx, ty, 0, 0);
+			if (!broken) {
+				if (-1 == TIFFReadTile(tif, tbuf, tx, ty, 0, 0))
+					memset(tbuf, -1, TIFFTileSize(tif));
+			}
 			for (uint16_t l = 0; l < spp; l++)
 			{
 			int L = l, Spp = spp;
@@ -2153,6 +2156,95 @@ static int read_raw_named_image(struct iio_image *x, const char *filespec)
 	xfree(file_contents);
 	return r;
 }
+
+//static int write_raw_named_image(const charr *filespec, struct iio_image *x)
+//{
+//	// filespec => description + filename
+//	char *colon = raw_prefix(filespec);
+//	size_t desclen = colon - filespec - 5;
+//	char description[desclen+1];
+//	char *filename = colon + 1;
+//	memcpy(description, filespec+4, desclen);
+//	description[desclen] = '\0';
+//
+//	// write data to file
+//	long file_size;
+//	void *file_contents = NULL;
+//	{
+//		FILE *f = xfopen(filename, "w");
+//		file_contents = load_rest_of_file(&file_size, f, NULL, 0);
+//		xfclose(f);
+//	}
+//
+//	// fill-in data description
+//	int width = -1;
+//	int height = -1;
+//	int pixel_dimension = 1;
+//	int brokenness = 0;
+//	int endianness = 0;
+//	int sample_type = IIO_TYPE_UINT8;
+//	int offset = -1;
+//
+//	// parse description string
+//	char *delim = ",", *tok = strtok(description, delim);
+//	int field;
+//	while (tok) {
+//		IIO_DEBUG("\ttoken = %s\n", tok);
+//		if (tok[1] == '@')
+//			field = raw_gfp(file_contents, file_size, 2+tok,
+//					endianness);
+//		else
+//			field = atoi(1+tok);
+//		IIO_DEBUG("\tfield=%d\n", field);
+//		switch(*tok) {
+//		case 'w': width           = field;       break;
+//		case 'h': height          = field;       break;
+//		case 'p': pixel_dimension = field;       break;
+//		case 'o': offset          = field;       break;
+//		case 'b': brokenness      = 1;                 break;
+//		case 'e': endianness      = 1;                 break;
+//		case 't': sample_type     = iio_inttyp(1+tok); break;
+//		}
+//		tok = strtok(NULL, delim);
+//	}
+//	int sample_size = iio_type_size(sample_type);
+//
+//	IIO_DEBUG("w = %d\n", width);
+//	IIO_DEBUG("h = %d\n", height);
+//	IIO_DEBUG("p = %d\n", pixel_dimension);
+//	IIO_DEBUG("o = %d\n", offset);
+//	IIO_DEBUG("b = %d\n", brokenness);
+//	IIO_DEBUG("t = %s\n", iio_strtyp(sample_type));
+//
+//	// estimate missing dimensions
+//	IIO_DEBUG("before estimation w=%d h=%d o=%d\n", width, height, offset);
+//	int pd = pixel_dimension;
+//	int ss = sample_size;
+//	if (offset < 0 && width > 0 && height > 0)
+//		offset = file_size - width * height * pd * ss;
+//	if (width < 0 && offset > 0 && height > 0)
+//		width = (file_size - offset)/(height * pd * ss);
+//	if (height < 0 && offset > 0 && width > 0)
+//		height = (file_size - offset)/(width * pd * ss);
+//	if (offset < 0) offset = 0;
+//	if (height < 0) height = file_size/(width * pd * ss);
+//	if (width  < 0) width  = file_size/(height * pd * ss);
+//	if (offset < 0 || width < 0 || height < 0)
+//		fail("could not determine width, height and offset"
+//				"(got %d,%d,%d)", width, height, offset);
+//	IIO_DEBUG("after estimation w=%d h=%d o=%d\n", width, height, offset);
+//
+//	int used_data_size = offset+width*height*pd*ss;
+//	if (used_data_size > file_size)
+//		fail("raw file is not large enough");
+//
+//	int r = parse_raw_binary_image_explicit(x,
+//			file_contents, file_size,
+//			width, height, pixel_dimension,
+//			offset, sample_type, brokenness, endianness);
+//	xfree(file_contents);
+//	return r;
+//}
 
 
 
@@ -3122,6 +3214,10 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 {
 	int typ = normalize_type(x->type);
 	if (x->dimension != 2) fail("de moment només escrivim 2D");
+	//if (raw_prefix(fname)) {
+	//	r = write_raw_named_image(fname, x);
+	//	return;
+	//}
 	if (string_suffix(filename, ".uv") && typ == IIO_TYPE_FLOAT
 				&& x->pixel_dimension == 2) {
 		iio_save_image_as_juv(filename, x);
