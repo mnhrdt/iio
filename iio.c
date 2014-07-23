@@ -264,19 +264,22 @@ static FILE *xfopen(const char *s, const char *p)
 
 	if (0 == strcmp("-", s))
 	{
-		if (0 == strcmp("w", p))
+		if (*p == 'w')
 			return stdout;
-		else if (0 == strcmp("r", p))
+		else if (*p == 'r')
 			return stdin;
 		else
 			fail("unknown fopen mode \"%s\"", p);
 	}
-	if (0 == strcmp("--", s) && 0 == strcmp("w", p)) return stderr;
+	if (0 == strcmp("--", s) && *p == 'w') return stderr;
 
-	f = fopen(s, p);
+	// NOTE: the 'b' flag is required for I/O on Windows systems
+	// on unix, it is ignored
+	char pp[3] = { p[0], 'b', '\0' };
+	f = fopen(s, pp);
 	if (f == NULL)
 		fail("can not open file \"%s\" in mode \"%s\"",// (%s)",
-				s, p);//, strerror(errno));
+				s, pp);//, strerror(errno));
 	global_variable_containing_the_name_of_the_last_opened_file = s;
 	return f;
 }
