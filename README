@@ -1,16 +1,15 @@
 This is a C library for opening images in any format.
 
-File "iio.c" contains all the functions.
-File "iio.h" contains (part of) the API and some documentation.
+To use this library, copy the "iio.c" and "iio.h" files into your source code.
+Edit the macros at the end of "iio.h" to fine-tune your library requirements.
 
-The files "misc/*.c" are example programs.
 
-The philosophy underlying the library is described on file "doc/iio.txt".
+iio.h                     interface (main source of documentation)
+iio.c                     implementation
 
-The directory "samples" contains sample images in various formats.
-
-The "misc/fes*" files are (tentative) build scripts for different conditions.
-
-Cmake helpers are located on "contrib/cmake"
-
-Python bindings are located on "contrib/piio_packaged"
+doc/                      documentation (mostly philosohpical)
+misc/*.c                  example programs
+misc/fes*                 examples of compilation with different compilers
+samples/*                 test images
+contrib/cmake/            cmake helper files
+contrib/piio_packaged/    python bindings
