@@ -68,7 +68,7 @@ ENDIF()
 #
 SET(C_FLAGS "${C_FLAGS} -O3 -std=c99 -funroll-loops -Wno-unused -DNDEBUG")
 MESSAGE( "FLAGS: ${C_FLAGS}")
-SET(IIO_LIB_SRCS iio.h iio.c)       #Define a variable that contains files of the lib
+SET(IIO_LIB_SRCS ../../iio.h ../../iio.c)       #Define a variable that contains files of the lib
 ADD_LIBRARY(IIOLIB ${IIO_LIB_SRCS}) #Define that those files create the lib FooLib
 TARGET_LINK_LIBRARIES(IIOLIB ${LIBS})
 SET_TARGET_PROPERTIES(IIOLIB PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
@@ -93,25 +93,25 @@ endforeach(next_ITEM ${FLGS})
 message("${inc_list}") 
 
 
-ADD_CUSTOM_COMMAND(
-   OUTPUT generate_iio.o 
-   COMMAND ${CMAKE_C_COMPILER} ${inc_list} -c ${CMAKE_CURRENT_SOURCE_DIR}/iio.c -o ${CMAKE_CURRENT_BINARY_DIR}/iio.o
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/iio.c ${CMAKE_CURRENT_SOURCE_DIR}/iio.h
-   COMMENT "Generating iio.o"
-   )
-ADD_CUSTOM_TARGET(iio.o ALL DEPENDS generate_iio.o)
+#ADD_CUSTOM_COMMAND(
+#   OUTPUT generate_iio.o 
+#   COMMAND ${CMAKE_C_COMPILER} ${inc_list} -c ${CMAKE_CURRENT_SOURCE_DIR}/iio.c -o ${CMAKE_CURRENT_BINARY_DIR}/iio.o
+#   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/iio.c ${CMAKE_CURRENT_SOURCE_DIR}/iio.h
+#   COMMENT "Generating iio.o"
+#   )
+#ADD_CUSTOM_TARGET(iio.o ALL DEPENDS generate_iio.o)
 
 
 # EXAMPLE
 #
 #
-ADD_EXECUTABLE (iio iio_test.c)
-TARGET_LINK_LIBRARIES(iio IIOLIB )
-SET_TARGET_PROPERTIES(iio PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
-
-ADD_EXECUTABLE (iion iio_test_named.c)
-TARGET_LINK_LIBRARIES(iion IIOLIB )
-SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
+#ADD_EXECUTABLE (iio iio_test.c)
+#TARGET_LINK_LIBRARIES(iio IIOLIB )
+#SET_TARGET_PROPERTIES(iio PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
+#
+#ADD_EXECUTABLE (iion iio_test_named.c)
+#TARGET_LINK_LIBRARIES(iion IIOLIB )
+#SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
 
 
 ##setup Config.cmake
