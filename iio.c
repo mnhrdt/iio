@@ -348,7 +348,7 @@ static void fill_temporary_filename(char *out)
 		static char buf[L_tmpnam+1];
 		char *tfn = tmpnam(buf);
 #endif//I_CAN_HAS_MKSTEMP
-		strcpy(out, tfn);
+		strncpy(out, tfn, FILENAME_MAX);
 }
 
 
