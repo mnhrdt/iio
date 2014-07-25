@@ -2268,9 +2268,9 @@ static int read_beheaded_whatever(struct iio_image *x,
 	//char command_format[] = "convert - %s < %s\0";
 	char command_format[] = "/usr/bin/convert - %s < %s\0";
 	char ppmname[strlen(filename)+5];
-	sprintf(ppmname, "%s.ppm", filename);
+	snprintf(ppmname, FILENAME_MAX, "%s.ppm", filename);
 	char command[strlen(command_format)+1+2*strlen(filename)];
-	sprintf(command, command_format, ppmname, filename);
+	snprintf(command, FILENAME_MAX, command_format, ppmname, filename);
 	IIO_DEBUG("COMMAND: %s\n", command);
 	int r = system(command);
 	IIO_DEBUG("command returned %d\n", r);
