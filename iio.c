@@ -1198,13 +1198,39 @@ static int read_beheaded_jpeg(struct iio_image *x,
 #ifdef I_CAN_HAS_LIBTIFF
 #  include <tiffio.h>
 
+static TIFF *tiffopen_fancy(const char *filename, char *mode)
+{
+	char *comma = strrchr(filename, ',');
+	if (*mode != 'r' || !comma)
+	def:	return TIFFOpen(filename, mode);
+
+	int aftercomma = strlen(comma + 1);
+	int ndigits = strspn(comma + 1, "0123456789");
+
+	if (aftercomma != ndigits) goto def;
+
+	char buf[FILENAME_MAX];
+	strncpy(buf, filename, FILENAME_MAX);
+	comma = strrchr(buf, ',');
+	*comma = '\0';
+	int index = atoi(comma + 1);
+
+	TIFF *tif = TIFFOpen(buf, mode);
+	if (!tif) return tif;
+	for (int i = 0; i < index; i++)
+		TIFFReadDirectory(tif);
+	
+	return tif;
+}
+
 static int read_whole_tiff(struct iio_image *x, const char *filename)
 {
 	// tries to read data in the correct format (via scanlines)
 	// if it fails, it tries to read ABGR data
 	TIFFSetWarningHandler(NULL);//suppress warnings
 
-	TIFF *tif = TIFFOpen(filename, "r");
+	fprintf(stderr, "TIFFOpen \"%s\"\n", filename);
+	TIFF *tif = tiffopen_fancy(filename, "r");
 	if (!tif) fail("could not open TIFF file \"%s\"", filename);
 	uint32_t w, h;
 	uint16_t spp, bps, fmt;
@@ -2646,6 +2672,46 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 	return IIO_FORMAT_UNRECOGNIZED;
 }
 
+static bool seekable_filenameP(const char *filename)
+{
+	if (filename[0] == '-')
+		return false;
+#ifdef I_CAN_POSIX
+	FILE *f = xfopen(filename, "r");
+	int r = lseek(f, 0, SEEK_CUR);
+	xfclose(f);
+	return r != -1;
+#else
+	return true;
+#endif
+}
+
+static bool comma_named_tiff(const char *filename)
+{
+	char *comma = strrchr(filename, ',');
+	if (!comma) return false;
+
+	int lnumber = strlen(comma + 1);
+	int ldigits = strspn(comma + 1, "0123456789");
+	if (lnumber != ldigits) return false;
+
+	char rfilename[FILENAME_MAX];
+	strncpy(rfilename, filename, FILENAME_MAX);
+	comma = rfilename + (comma - filename);
+	*comma = '\0';
+
+	bool retval = false;
+	if (seekable_filenameP(rfilename)) {
+		FILE *f = xfopen(rfilename, "r");
+		int bufmax = 0x100, nbuf, format;
+		char buf[0x100] = {0};
+		format = guess_format(f, buf, &nbuf, bufmax);
+		retval = format == IIO_FORMAT_TIFF;
+		xfclose(f);
+	}
+	return retval;
+}
+
 // dispatcher {{{1
 
 // "centralized dispatcher"
@@ -2782,7 +2848,11 @@ static int read_image(struct iio_image *x, const char *fname)
 	} else
 #endif//I_CAN_HAS_WGET
 
-	if (raw_prefix(fname)) {
+	if (false) {
+		;
+	} else if (comma_named_tiff(fname)) {
+		r = read_whole_tiff(x, fname);
+	} else if (raw_prefix(fname)) {
 		r = read_raw_named_image(x, fname);
 	} else {
 		FILE *f = xfopen(fname, "r");
