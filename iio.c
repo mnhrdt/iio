@@ -826,7 +826,7 @@ static void unpack_bits_to_bytes(uint8_t out[8], uint8_t in)
 
 static void unpack_to_bytes_here(uint8_t *dest, uint8_t *src, int n, int bits)
 {
-	fprintf(stderr, "unpacking %d bytes %d-fold\n", n, bits);
+	//fprintf(stderr, "unpacking %d bytes %d-fold\n", n, bits);
 	assert(bits==1 || bits==2 || bits==4);
 	//size_t unpack_factor = 8 / bits;
 	switch(bits) {
@@ -1228,7 +1228,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	// if it fails, it tries to read ABGR data
 	TIFFSetWarningHandler(NULL);//suppress warnings
 
-	fprintf(stderr, "TIFFOpen \"%s\"\n", filename);
+	//fprintf(stderr, "TIFFOpen \"%s\"\n", filename);
 	TIFF *tif = tiffopen_fancy(filename, "r");
 	if (!tif) fail("could not open TIFF file \"%s\"", filename);
 	uint32_t w, h;
@@ -1365,7 +1365,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 		if (r < 0) fail("error reading tiff row %d/%d", i, (int)h);
 
 		if (bps < 8) {
-			fprintf(stderr, "unpacking %dth scanline\n", i);
+			//fprintf(stderr, "unpacking %dth scanline\n", i);
 			unpack_to_bytes_here(data + i*uscanline_size, buf,
 					scanline_size, bps);
 			fmt_iio = IIO_TYPE_UINT8;
@@ -3075,7 +3075,7 @@ uint8_t ***iio_read_image_uint8_matrix_vec(const char *fname,
 	*w = x->sizes[0];
 	*h = x->sizes[1];
 	*pd = x->pixel_dimension;
-	fprintf(stderr, "matrix_vec pd = %d\n", *pd);
+	//fprintf(stderr, "matrix_vec pd = %d\n", *pd);
 	iio_convert_samples(x, IIO_TYPE_UINT8);
 	return wrap_2dmatrix_around_data(x->data, *w, *h, *pd);
 }
