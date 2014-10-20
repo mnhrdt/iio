@@ -2030,11 +2030,57 @@ static int read_beheaded_asc(struct iio_image *x,
 
 // RAW reader                                                               {{{2
 
-// Note: there are two raw readers, either the user supplies the
-// dimensions and data format, or she defines where they can be found.
+// Note: there are two raw readers, either
+//
+// 1) the user supplies the dimensions and data format, or their location
+// 2) the program uses several heuristics to find the dimensions
+//
 // They are named, respectively, explicit and fancy.
 //
-// Note2: to be implemented
+// Note2: the fancy reader is not yet implemented
+
+//
+// Documentation for the "explicit" raw reader
+// -------------------------------------------
+//
+// Idea: to read a raw file named "file.xxx", open the image
+// with name "RAW[...]:file.xxx".  The "..." specify the
+// details of the raw format.
+//
+// 
+// Example:
+//
+// RAW[w320,h200,tFLOAT]:file.xxx
+//
+// This reads 320x200 floats from "file.xxx".
+//
+// The contents of [ ] are a list of "tokens", separated by ","
+//
+// Each token is a character followed by its value
+//
+// Valid characters with their meaning:
+//
+// w = width
+// h = height
+// d = pixel dimension (e.g. 1 or 3)
+//
+// t =  one of "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64",
+// "UINT64", "FLOAT", "DOUBLE", "LONGDOUBLE", "HALF", "UINT1",
+// "UINT2", "UINT4", "CHAR", "SHORT", "INT", "LONG", "LONGLONG",
+//
+// o = offset bytes to be ignored from the start of the file
+//     (if negative, ignored from the byte after th end of the file)
+//     ((default=-1 == EOF))
+//
+// b = 0,1 wether pixel channels are contiguous or broken into planes
+//
+// e = 0,1 controls the endianness.  By default, the native one
+//
+//
+// All the numeric fields can be read from the same file.  For example,
+// "w@44/2" says that the width is read from position 44 of the file
+// as an uint16, etc.
+//
 
 // if f ~ /RAW[.*]:.*/ return the position of the colon
 static char *raw_prefix(const char *f)
