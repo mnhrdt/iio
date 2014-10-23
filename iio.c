@@ -2007,6 +2007,7 @@ static int read_beheaded_exr(struct iio_image *x,
 static int read_beheaded_asc(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
+	(void)nheader;
 	assert(header[nheader-1] == '\n');
 	int n[4], r = sscanf(header, "%d %d %d %d\n", n, n+1, n+2, n+3);
 	if (r != 4) return 1;
