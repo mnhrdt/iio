@@ -2942,21 +2942,21 @@ static void *rfail(const char *fmt, ...)
 	return NULL;
 }
 
-// 2D only
-static
-void *iio_read_image(const char *fname, int *w, int *h, int desired_sample_type)
-{
-	struct iio_image x[1];
-	int r = read_image(x, fname);
-	if (r) return rfail("could not read image");
-	if (x->dimension != 2) {
-		x->dimension = 2;
-	}
-	*w = x->sizes[0];
-	*h = x->sizes[1];
-	iio_convert_samples(x, desired_sample_type);
-	return x->data;
-}
+//// 2D only
+//static
+//void *iio_read_image(const char *fname, int *w, int *h, int desired_sample_type)
+//{
+//	struct iio_image x[1];
+//	int r = read_image(x, fname);
+//	if (r) return rfail("could not read image");
+//	if (x->dimension != 2) {
+//		x->dimension = 2;
+//	}
+//	*w = x->sizes[0];
+//	*h = x->sizes[1];
+//	iio_convert_samples(x, desired_sample_type);
+//	return x->data;
+//}
 
 // API 2D
 float *iio_read_image_float_vec(const char *fname, int *w, int *h, int *pd)
@@ -3283,7 +3283,23 @@ int *iio_read_image_int(const char *fname, int *w, int *h)
 // API 2D
 uint8_t *iio_read_image_uint8(const char *fname, int *w, int *h)
 {
-	return iio_read_image(fname, w, h, IIO_TYPE_UINT8);
+	struct iio_image x[1];
+	int r = read_image(x, fname);
+	if (r) return rfail("could not read image");
+	if (x->dimension != 2) {
+		x->dimension = 2;
+		return rfail("non 2d image");
+	}
+	if (x->pixel_dimension == 3)
+		iio_hacky_uncolorize(x);
+	if (x->pixel_dimension == 4)
+		iio_hacky_uncolorizea(x);
+	if (x->pixel_dimension != 1)
+		return rfail("non-scalarizable image");
+	*w = x->sizes[0];
+	*h = x->sizes[1];
+	iio_convert_samples(x, IIO_TYPE_UINT8);
+	return x->data;
 }
 
 
