@@ -1048,6 +1048,13 @@ recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
 		clear[pd*i + l] = broken[n*l + i];
 }
 
+static void
+recover_broken_pixels_double(double *clear, double *broken, int n, int pd)
+{
+	FORL(pd) FORI(n)
+		clear[pd*i + l] = broken[n*l + i];
+}
+
 // individual format readers                                                {{{1
 // PNG reader                                                               {{{2
 
@@ -3619,6 +3626,15 @@ void iio_save_image_double_vec(char *filename, double *data,
 	x->data = data;
 	x->contiguous_data = false;
 	iio_save_image_default(filename, x);
+}
+
+void iio_save_image_double_split(char *filename, double *data,
+		int w, int h, int pd)
+{
+	double *rdata = xmalloc(w*h*pd*sizeof*rdata);
+	recover_broken_pixels_double(rdata, data, w*h, pd);
+	iio_save_image_double_vec(filename, rdata, w, h, pd);
+	xfree(rdata);
 }
 
 void iio_save_image_float(char *filename, float *data, int w, int h)
