@@ -2903,8 +2903,10 @@ static int read_image(struct iio_image *x, const char *fname)
 
 	if (false) {
 		;
+#ifdef I_CAN_HAS_LIBTIFF
 	} else if (comma_named_tiff(fname)) {
 		r = read_whole_tiff(x, fname);
+#endif//I_CAN_HAS_LIBTIFF
 	} else if (raw_prefix(fname)) {
 		r = read_raw_named_image(x, fname);
 	} else {
