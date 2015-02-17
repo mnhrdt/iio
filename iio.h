@@ -1,7 +1,7 @@
 #ifndef _IIO_H
 #define _IIO_H
 
-#include <stddef.h>
+//#include <stddef.h>
 #include <stdbool.h>
 
 
@@ -182,13 +182,13 @@ uint16_t *iio_read_image_uint16_vec(const char *fname, int *w, int *h, int *pd);
 //
 
 //
-void *iio_read_image_raw(const char *fname,
-		int *dimension,
-		int sizes[IIO_MAX_DIMENSION],
-		int *pixel_dimension,
-		size_t *sample_integer_size,
-		size_t *sample_float_size,
-		int *metadata_id);
+//void *iio_read_image_raw(const char *fname,
+//		int *dimension,
+//		int sizes[IIO_MAX_DIMENSION],
+//		int *pixel_dimension,
+//		size_t *sample_integer_size,
+//		size_t *sample_float_size,
+//		int *metadata_id);
 
 
 /*

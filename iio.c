@@ -2111,10 +2111,10 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 	(void)broken_pixels;
 	size_t nsamples = w*h*pd;
 	size_t ss = iio_type_size(sample_type);
-	if (ndata != header_bytes + nsamples*ss) {
-		fprintf(stderr, "bad raw file size (%zu != %d + %zu)",
-				ndata, header_bytes, nsamples);
-		return 1;
+	if (ndata < header_bytes + nsamples*ss) {
+		fprintf(stderr, "WARNING:bad raw file size (%zu != %d + %zu)",
+				ndata, header_bytes, nsamples*ss);
+		//return 1;
 	}
 	int sizes[2] = {w, h};
 	iio_image_build_independent(x, 2, sizes, sample_type, pd);
@@ -2879,6 +2879,16 @@ static int read_image(struct iio_image *x, const char *fname)
 		iio_image_build_independent(x, 2, s, IIO_TYPE_CHAR, pd);
 		for (int i = 0; i < *s*s[1]*pd; i++)
 			((char*)x->data)[i] = 1;
+		return 0;
+	}
+	if (fname == strstr(fname, "constant:")) {
+		float value;
+		int s[2], pd = 1;
+		if (3 == sscanf(fname+9, "%g:%dx%d", &value, s, s+1));
+		else fail("bad semantical name \"%s\"", fname);
+		iio_image_build_independent(x, 2, s, IIO_TYPE_CHAR, pd);
+		for (int i = 0; i < *s*s[1]*pd; i++)
+			((char*)x->data)[i] = value;
 		return 0;
 	}
 
