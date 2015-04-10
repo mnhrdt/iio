@@ -596,6 +596,58 @@ static void iio_image_build_independent(struct iio_image *x,
 	x->data = xmalloc(datasize);
 }
 
+static void inplace_swap_pixels(struct iio_image *x, int i, int j, int a, int b)
+{
+	if (x->dimension != 2)
+		fail("can only flip 2-dimensional images");
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	int pixsize = x->pixel_dimension * iio_image_sample_size(x);
+	uint8_t *p = (i + j * w) * pixsize + (uint8_t*)x->data;
+	uint8_t *q = (a + b * w) * pixsize + (uint8_t*)x->data;
+	for (int k = 0; k < pixsize; k++)
+	{
+		uint8_t tmp = p[k];
+		p[k] = q[k];
+		q[k] = tmp;
+	}
+}
+
+static void inplace_flip_horizontal(struct iio_image *x)
+{
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	for (int j = 0; j < h; j++)
+	for (int i = 0; i < w/2; i++)
+		inplace_swap_pixels(x, i, j, w - i - 1, j);
+}
+
+static void inplace_flip_vertical(struct iio_image *x)
+{
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	for (int j = 0; j < h/2; j++)
+	for (int i = 0; i < w; i++)
+		inplace_swap_pixels(x, i, j, i, h - j - 1);
+}
+
+static void inplace_transpose(struct iio_image *x)
+{
+	fail("inplace transpose not implemented");
+}
+
+static void inplace_reorient(struct iio_image *x, int orientation)
+{
+	int orx = orientation & 0xff;
+	int ory = (orientation & 0xff00)/0x100;
+	if (isupper(orx))
+		inplace_flip_horizontal(x);
+	if (isupper(ory))
+		inplace_flip_vertical(x);
+	if (toupper(orx) > toupper(ory))
+		inplace_transpose(x);
+}
+
 
 // data conversion                                                          {{{1
 
@@ -2084,6 +2136,8 @@ static int read_beheaded_asc(struct iio_image *x,
 //
 // e = 0,1 controls the endianness.  By default, the native one
 //
+// r = xy, xY, Xy, XY, yx, Yx, yX, YX
+//         controls the orientation of the coordinates (uppercase=reverse)
 //
 // All the numeric fields can be read from the same file.  For example,
 // "w@44/2" says that the width is read from position 44 of the file
@@ -2177,6 +2231,7 @@ static int read_raw_named_image(struct iio_image *x, const char *filespec)
 	int endianness = 0;
 	int sample_type = IIO_TYPE_UINT8;
 	int offset = -1;
+	int orientation = 0;
 
 	// parse description string
 	char *delim = ",", *tok = strtok(description, delim);
@@ -2197,6 +2252,7 @@ static int read_raw_named_image(struct iio_image *x, const char *filespec)
 		case 'b': brokenness      = 1;                 break;
 		case 'e': endianness      = 1;                 break;
 		case 't': sample_type     = iio_inttyp(1+tok); break;
+		case 'r': orientation     = tok[1]+256*tok[2]; break;
 		}
 		tok = strtok(NULL, delim);
 	}
@@ -2235,6 +2291,8 @@ static int read_raw_named_image(struct iio_image *x, const char *filespec)
 			file_contents, file_size,
 			width, height, pixel_dimension,
 			offset, sample_type, brokenness, endianness);
+	if (orientation)
+		inplace_reorient(x, orientation);
 	xfree(file_contents);
 	return r;
 }
