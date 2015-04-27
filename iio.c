@@ -2102,22 +2102,100 @@ static int getlinen(char *l, int n, FILE *f)
 	return i;
 }
 
+static void pds_parse_line(char *key, char *value, char *line)
+{
+	int r = sscanf(line, "%s = %s\n", key, value);
+	if (r != 2) {
+		*key = *value = '\0'; return; }
+}
+
 static int read_beheaded_pds(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
+	// check that the file is named, and not a pipe
 	const char *fn;
 	fn = global_variable_containing_the_name_of_the_last_opened_file;
 	if (!fn)
-		return 1; // only admit named files
+		return 1;
 
+	// get an object name, if different to "^IMAGE"
 	char *object_id = getenv("IIO_PDS_OBJECT");
 	if (!object_id)
 		object_id = "^IMAGE";
 
-	int n, nmax = 10000;
-	char buf[nmax];
-	while (n = getlinen(buf, nmax, f))
-		fail("TODO: write PDS header loop");
+	// parse the header and obtain the image dimensions and type name
+	int n, nmax = 1000, cx = 0;
+	char line[nmax], key[nmax], value[nmax];
+	int rbytes = -1, w = -1, h = -1, spp = 1, bps = 1, obj = -1;
+	int sfmt = SAMPLEFORMAT_UINT;
+	bool in_object = false;
+	bool flip_h = false, flip_v = false, allturn = false;
+	while (n = getlinen(line, nmax, f) && cx++ < nmax)
+	{
+		pds_parse_line(key, value, line);
+		if (!*key || !*value) continue;
+		IIO_DEBUG("PDS \"%s\" = \"%s\"\n", key, value);
+		if (!strcmp(key, "RECORD_BYTES")) rbytes = atoi(value);
+		if (!strcmp(key, object_id))      obj = atoi(value);
+		if (!strcmp(key, "OBJECT") && !strcmp(value, object_id+1))
+			in_object = true;
+		if (!in_object) continue;
+		if (!strcmp(key, "LINES"))        h = atoi(value);
+		if (!strcmp(key, "LINE_SAMPLES")) w = atoi(value);
+		if (!strcmp(key, "SAMPLE_BITS"))  bps = atoi(value);
+		if (!strcmp(key, "BANDS"))        spp = atoi(value);
+		if (!strcmp(key, "SAMPLE_TYPE")) {
+			if (strstr(value, "REAL")) sfmt = SAMPLEFORMAT_IEEEFP;
+			if (strstr(value, "UNSIGNED")) sfmt = SAMPLEFORMAT_UINT;
+		}
+		if (!strcmp(key, "SAMPLE_DISPLAY_DIRECTION"))
+			flip_h = allturn !=! strcmp(value, "RIGHT");
+		if (!strcmp(key, "LINE_DISPLAY_DIRECTION"))
+			flip_v = allturn !=! strcmp(value, "DOWN");
+		if (!strcmp(key, "END_OBJECT") && !strcmp(value, object_id+1))
+			break;
+	}
+
+	IIO_DEBUG("rbytes = %d\n", rbytes);
+	IIO_DEBUG("object_id = %s\n", object_id);
+	IIO_DEBUG("obj = %d\n", obj);
+	IIO_DEBUG("w = %d\n", w);
+	IIO_DEBUG("h = %d\n", h);
+	IIO_DEBUG("bps = %d\n", bps);
+	IIO_DEBUG("spp = %d\n", spp);
+
+	// identify the sample type
+	int typ = -1;
+	if (sfmt==SAMPLEFORMAT_IEEEFP && bps==32) typ = IIO_TYPE_FLOAT;
+	if (sfmt==SAMPLEFORMAT_IEEEFP && bps==64) typ = IIO_TYPE_DOUBLE;
+	if (sfmt==SAMPLEFORMAT_UINT && bps==8)    typ = IIO_TYPE_UINT8;
+	if (sfmt==SAMPLEFORMAT_UINT && bps==16)   typ = IIO_TYPE_UINT16;
+	if (sfmt==SAMPLEFORMAT_UINT && bps==32)   typ = IIO_TYPE_UINT32;
+	assert(typ > 0);
+
+	// fill-in the image struct
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = spp;
+	x->type = typ;
+	x->contiguous_data = false;
+
+	// alloc memory for image data
+	int size = w * h * spp * (bps/8);
+	x->data = xmalloc(size);
+
+	// read data
+	n = fseek(f, rbytes * (obj - 1) , SEEK_SET);
+	if (n) { free(x->data); return 2; }
+	n = fread(x->data, size, 1, f);
+	if (n != 1) { free(x->data); return 3; }
+
+	// if necessary, transpose data
+	if (flip_h) inplace_flip_horizontal(x);
+	if (flip_v) inplace_flip_vertical(x);
+
+	// return
 	return 0;
 }
 
