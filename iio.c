@@ -2593,7 +2593,7 @@ static void iio_save_image_as_pfm(const char *filename, struct iio_image *x)
 	assert(x->dimension == 2);
 	assert(x->pixel_dimension == 1 || x->pixel_dimension == 3);
 	FILE *f = xfopen(filename, "w");
-	int dimchar = 1 < x->dimension ? 'F' : 'f';
+	int dimchar = 1 < x->pixel_dimension ? 'F' : 'f';
 	int w = x->sizes[0];
 	int h = x->sizes[1];
 	float scale = -1;
