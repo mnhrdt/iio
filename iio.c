@@ -104,7 +104,8 @@
 #define IIO_FORMAT_LUM 21
 #define IIO_FORMAT_PCM 22
 #define IIO_FORMAT_ASC 23
-#define IIO_FORMAT_RAW 24
+#define IIO_FORMAT_PDS 24
+#define IIO_FORMAT_RAW 25
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -529,7 +530,7 @@ static const char *iio_strfmt(int format)
 	M(TIFF); M(RIM); M(BMP); M(EXR); M(JP2);
 	M(VTK); M(CIMG); M(PAU); M(DICOM); M(PFM); M(NIFTI);
 	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(LUM); M(JUV);
-	M(PCM); M(ASC); M(RAW);
+	M(PCM); M(ASC); M(RAW); M(PDS);
 	M(UNRECOGNIZED);
 	default: fail("caca de la grossa (%d)", format);
 	}
@@ -2090,6 +2091,37 @@ static int read_beheaded_asc(struct iio_image *x,
 	return 0;
 }
 
+// PDS reader                                                               {{{2
+
+static int getlinen(char *l, int n, FILE *f)
+{
+	int c, i = 0;
+	while (i < n-1 && (c = fgetc(f)) != EOF && c != '\n')
+		l[i++] = c;
+	l[i] = '\0';
+	return i;
+}
+
+static int read_beheaded_pds(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	const char *fn;
+	fn = global_variable_containing_the_name_of_the_last_opened_file;
+	if (!fn)
+		return 1; // only admit named files
+
+	char *object_id = getenv("IIO_PDS_OBJECT");
+	if (!object_id)
+		object_id = "^IMAGE";
+
+	int n, nmax = 10000;
+	char buf[nmax];
+	while (n = getlinen(buf, nmax, f))
+		fail("TODO: write PDS header loop");
+	return 0;
+}
+
+
 // RAW reader                                                               {{{2
 
 // Note: there are two raw readers, either
@@ -2554,6 +2586,23 @@ static void iio_save_image_as_flo(const char *filename, struct iio_image *x)
 	xfclose(f);
 }
 
+// PFM writer                                                               {{{2
+static void iio_save_image_as_pfm(const char *filename, struct iio_image *x)
+{
+	assert(x->type == IIO_TYPE_FLOAT);
+	assert(x->dimension == 2);
+	assert(x->pixel_dimension == 1 || x->pixel_dimension == 3);
+	FILE *f = xfopen(filename, "w");
+	int dimchar = 1 < x->dimension ? 'F' : 'f';
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	float scale = -1;
+	fprintf(f, "P%c\n%d %d\n%g\n", dimchar, w, h, scale);
+	fwrite(x->data, w * h * x->pixel_dimension * sizeof(float), 1 ,f);
+	xfclose(f);
+}
+
+
 // RIM writer                                                               {{{2
 
 static void rim_putshort(FILE *f, uint16_t n)
@@ -2689,6 +2738,9 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 	if (b[0]=='P' && b[1]=='I' && b[2]=='E' && b[3]=='H')
 		return IIO_FORMAT_FLO;
 
+	if (b[0]=='P' && b[1]=='D' && b[2]=='S' && b[3]=='_')
+		return IIO_FORMAT_PDS;
+
 	b[4] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[5] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[6] = add_to_header_buffer(f, b, nbuf, bufmax);
@@ -2784,6 +2836,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_PCM:   return read_beheaded_pcm (x, f, h, hn);
 	case IIO_FORMAT_ASC:   return read_beheaded_asc (x, f, h, hn);
 	case IIO_FORMAT_BMP:   return read_beheaded_bmp (x, f, h, hn);
+	case IIO_FORMAT_PDS:   return read_beheaded_pds (x, f, h, hn);
 	case IIO_FORMAT_RAW:   return read_beheaded_raw (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
@@ -3383,6 +3436,11 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 	if (string_suffix(filename, ".flo") && typ == IIO_TYPE_FLOAT
 				&& x->pixel_dimension == 2) {
 		iio_save_image_as_flo(filename, x);
+		return;
+	}
+	if (string_suffix(filename, ".pfm") && typ == IIO_TYPE_FLOAT
+		&& (x->pixel_dimension == 1 || x->pixel_dimension == 3)) {
+		iio_save_image_as_pfm(filename, x);
 		return;
 	}
 	if (string_suffix(filename, ".mw") && typ == IIO_TYPE_FLOAT
