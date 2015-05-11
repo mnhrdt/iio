@@ -2239,6 +2239,10 @@ static int read_beheaded_csv(struct iio_image *x,
 		*numbers++ = atof(tok);
 		tok = strtok(NULL, delim);
 	}
+
+	// cleanup and exit
+	free(filedata);
+	return 0;
 }
 
 // RAW reader                                                               {{{2
