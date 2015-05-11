@@ -106,6 +106,8 @@
 #define IIO_FORMAT_ASC 23
 #define IIO_FORMAT_PDS 24
 #define IIO_FORMAT_RAW 25
+#define IIO_FORMAT_RWA 26
+#define IIO_FORMAT_CSV 27
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -116,7 +118,7 @@
 #define FORK(n) for(int k=0;k<(int)(n);k++)
 #define FORL(n) for(int l=0;l<(int)(n);l++)
 
-//#define IIO_SHOW_DEBUG_MESSAGES
+#define IIO_SHOW_DEBUG_MESSAGES
 #ifdef IIO_SHOW_DEBUG_MESSAGES
 #  define IIO_DEBUG(...) do {\
 	fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__PRETTY_FUNCTION__);\
@@ -530,7 +532,7 @@ static const char *iio_strfmt(int format)
 	M(TIFF); M(RIM); M(BMP); M(EXR); M(JP2);
 	M(VTK); M(CIMG); M(PAU); M(DICOM); M(PFM); M(NIFTI);
 	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(LUM); M(JUV);
-	M(PCM); M(ASC); M(RAW); M(PDS);
+	M(PCM); M(ASC); M(RAW); M(RWA); M(PDS); M(CSV);
 	M(UNRECOGNIZED);
 	default: fail("caca de la grossa (%d)", format);
 	}
@@ -2199,6 +2201,45 @@ static int read_beheaded_pds(struct iio_image *x,
 	return 0;
 }
 
+// CSV reader                                                               {{{2
+
+static int read_beheaded_csv(struct iio_image *x,
+		FILE *fin, char *header, int nheader)
+{
+	// load whole file
+	long filesize;
+	uint8_t *filedata = load_rest_of_file(&filesize, fin, header, nheader);
+
+	// height = number of newlines
+	int h = 0;
+	for (int i = 0 ; i < filesize; i++) if (filedata[i] == '\n') h += 1;
+
+	// width = ( number of commas  + h ) / h
+	int nc = 0;
+	for (int i = 0 ; i < filesize; i++) if (filedata[i] == ',') nc += 1;
+	int w = nc / h + 1;
+
+	// fill-in the image struct
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 1;
+	x->type = IIO_TYPE_FLOAT;
+	x->contiguous_data = false;
+
+	// alloc memory for image data
+	int size = w * h * sizeof(float);
+	x->data = xmalloc(size);
+	float *numbers = x->data;
+
+	// read data
+	char *delim = ",\n", *tok = strtok(filedata, delim);
+	while (tok)
+	{
+		*numbers++ = atof(tok);
+		tok = strtok(NULL, delim);
+	}
+}
 
 // RAW reader                                                               {{{2
 
@@ -2267,6 +2308,17 @@ static int read_beheaded_pds(struct iio_image *x,
 static char *raw_prefix(const char *f)
 {
 	if (f != strstr(f, "RAW["))
+		return NULL;
+	char *colon = strchr(f, ':');
+	if (!colon || colon[-1] != ']')
+		return NULL;
+	return colon;
+}
+
+// if f ~ /RWA[.*]:.*/ return the position of the colon
+static char *rwa_prefix(const char *f)
+{
+	if (f != strstr(f, "RWA["))
 		return NULL;
 	char *colon = strchr(f, ':');
 	if (!colon || colon[-1] != ']')
@@ -2849,11 +2901,27 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 	if (4 == sscanf((char*)b, "%d %d %d %d\n", t, t+1, t+2, t+3) && t[2]==1)
 		return IIO_FORMAT_ASC;
 
+	// fill the rest of the buffer, for computing statistics
+	while (*nbuf < bufmax)
+		add_to_header_buffer(f, b, nbuf, bufmax);
+
+	bool buffer_statistics_agree_with_csv(uint8_t*, int);
+	if (buffer_statistics_agree_with_csv(b, bufmax))
+		return IIO_FORMAT_CSV;
 
 	if (getenv("IIO_RAW"))
 		return IIO_FORMAT_RAW;
 
 	return IIO_FORMAT_UNRECOGNIZED;
+}
+
+bool buffer_statistics_agree_with_csv(uint8_t *b, int n)
+{
+	char tmp[n+1];
+	memcpy(tmp, b, n);
+	tmp[n] = '\0';
+	return n = strspn(tmp, "0123456789.e+-,\n");
+	//IIO_DEBUG("strcspn(\"%s\") = %d\n", tmp, r);
 }
 
 static bool seekable_filenameP(const char *filename)
@@ -2916,6 +2984,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_BMP:   return read_beheaded_bmp (x, f, h, hn);
 	case IIO_FORMAT_PDS:   return read_beheaded_pds (x, f, h, hn);
 	case IIO_FORMAT_RAW:   return read_beheaded_raw (x, f, h, hn);
+	case IIO_FORMAT_CSV:   return read_beheaded_csv (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
 	case IIO_FORMAT_PNG:   return read_beheaded_png (x, f, h, hn);
@@ -3052,6 +3121,8 @@ static int read_image(struct iio_image *x, const char *fname)
 #endif//I_CAN_HAS_LIBTIFF
 	} else if (raw_prefix(fname)) {
 		r = read_raw_named_image(x, fname);
+	//} else if (rwa_prefix(fname)) {
+	//	r = read_rwa_named_image(x, fname);
 	} else {
 		// call CORE
 		FILE *f = xfopen(fname, "r");
