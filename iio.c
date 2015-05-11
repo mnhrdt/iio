@@ -118,7 +118,7 @@
 #define FORK(n) for(int k=0;k<(int)(n);k++)
 #define FORL(n) for(int l=0;l<(int)(n);l++)
 
-#define IIO_SHOW_DEBUG_MESSAGES
+//#define IIO_SHOW_DEBUG_MESSAGES
 #ifdef IIO_SHOW_DEBUG_MESSAGES
 #  define IIO_DEBUG(...) do {\
 	fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__PRETTY_FUNCTION__);\
