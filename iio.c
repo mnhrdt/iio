@@ -642,8 +642,8 @@ static void inplace_transpose(struct iio_image *x)
 	int h = x->sizes[1];
 	if (w != h)
 		fail("rectangular inplace transpose not implemented");
-	for (int j = 0; j < h/2; j++)
 	for (int i = 0; i < w; i++)
+	for (int j = 0; j < i; j++)
 		inplace_swap_pixels(x, i, j, j, i);
 }
 
