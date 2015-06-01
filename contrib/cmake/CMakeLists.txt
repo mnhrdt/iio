@@ -111,7 +111,7 @@ message("${inc_list}")
 
 ADD_EXECUTABLE (iion ../../misc/iio_test_named.c ../../iio.h ../../iio.c)
 TARGET_LINK_LIBRARIES(iion IIOLIB )
-SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS} -I${IIO_INCLUDE}")
+SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS} -I${PROJECT_SOURCE_DIR}/../../")
 
 
 ##setup Config.cmake
