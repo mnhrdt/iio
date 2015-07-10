@@ -948,6 +948,15 @@ static void iio_hacky_uncolorize(struct iio_image *x)
 		x->data = r;
 		}
 		break;
+	case IIO_TYPE_UINT16: {
+		uint16_t (*xd)[3] = x->data;
+		uint16_t *r = xmalloc(n*sizeof*r);
+		FORI(n)
+			r[i] = .299*xd[i][0] + .587*xd[i][1] + .114*xd[i][2];
+		xfree(x->data);
+		x->data = r;
+		}
+		break;
 	case IIO_TYPE_FLOAT: {
 		float (*xd)[3] = x->data;
 		float *r = xmalloc(n*sizeof*r);
@@ -2101,6 +2110,12 @@ static int read_beheaded_asc(struct iio_image *x,
 
 // PDS reader                                                               {{{2
 
+// read a line of text until either
+// 	- n characters are read
+// 	- a newline character is found
+// 	- the end of file is reached
+// returns the number of reac characters, not including the end zero
+// Calling this functions should always result in a valid string on l
 static int getlinen(char *l, int n, FILE *f)
 {
 	int c, i = 0;
@@ -2110,6 +2125,7 @@ static int getlinen(char *l, int n, FILE *f)
 	return i;
 }
 
+// parse a line of the form "KEY = VALUE"
 static void pds_parse_line(char *key, char *value, char *line)
 {
 	int r = sscanf(line, "%s = %s\n", key, value);
@@ -2160,6 +2176,8 @@ static int read_beheaded_pds(struct iio_image *x,
 			flip_h = allturn !=! strcmp(value, "RIGHT");
 		if (!strcmp(key, "LINE_DISPLAY_DIRECTION"))
 			flip_v = allturn !=! strcmp(value, "DOWN");
+		// TODO: support the 8 possible rotations and orientations
+		// (RAW-equivalents: xy xY Xy XY yx yX Yx YX)
 		if (!strcmp(key, "END_OBJECT") && !strcmp(value, object_id+1))
 			break;
 	}
