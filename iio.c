@@ -2154,7 +2154,7 @@ static int read_beheaded_pds(struct iio_image *x,
 	int sfmt = SAMPLEFORMAT_UINT;
 	bool in_object = false;
 	bool flip_h = false, flip_v = false, allturn = false;
-	while (n = getlinen(line, nmax, f) && cx++ < nmax)
+	while ((n = getlinen(line, nmax, f)) && cx++ < nmax)
 	{
 		pds_parse_line(key, value, line);
 		if (!*key || !*value) continue;
@@ -2232,7 +2232,7 @@ static int read_beheaded_csv(struct iio_image *x,
 {
 	// load whole file
 	long filesize;
-	uint8_t *filedata = load_rest_of_file(&filesize, fin, header, nheader);
+	char *filedata = load_rest_of_file(&filesize, fin, header, nheader);
 
 	// height = number of newlines
 	int h = 0;
@@ -2948,7 +2948,7 @@ bool buffer_statistics_agree_with_csv(uint8_t *b, int n)
 	char tmp[n+1];
 	memcpy(tmp, b, n);
 	tmp[n] = '\0';
-	return n = strspn(tmp, "0123456789.e+-,\n");
+	return (n = strspn(tmp, "0123456789.e+-,\n"));
 	//IIO_DEBUG("strcspn(\"%s\") = %d\n", tmp, r);
 }
 
