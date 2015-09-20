@@ -606,7 +606,7 @@ static void inplace_swap_pixels(struct iio_image *x, int i, int j, int a, int b)
 	if (x->dimension != 2)
 		fail("can only flip 2-dimensional images");
 	int w = x->sizes[0];
-	int h = x->sizes[1];
+	//int h = x->sizes[1]; // unused
 	int pixsize = x->pixel_dimension * iio_image_sample_size(x);
 	uint8_t *p = (i + j * w) * pixsize + (uint8_t*)x->data;
 	uint8_t *q = (a + b * w) * pixsize + (uint8_t*)x->data;
@@ -2136,6 +2136,7 @@ static void pds_parse_line(char *key, char *value, char *line)
 static int read_beheaded_pds(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
+	(void)header; (void)nheader;
 	// check that the file is named, and not a pipe
 	const char *fn;
 	fn = global_variable_containing_the_name_of_the_last_opened_file;
@@ -2343,16 +2344,16 @@ static char *raw_prefix(const char *f)
 	return colon;
 }
 
-// if f ~ /RWA[.*]:.*/ return the position of the colon
-static char *rwa_prefix(const char *f)
-{
-	if (f != strstr(f, "RWA["))
-		return NULL;
-	char *colon = strchr(f, ':');
-	if (!colon || colon[-1] != ']')
-		return NULL;
-	return colon;
-}
+//// if f ~ /RWA[.*]:.*/ return the position of the colon
+//static char *rwa_prefix(const char *f)
+//{
+//	if (f != strstr(f, "RWA["))
+//		return NULL;
+//	char *colon = strchr(f, ':');
+//	if (!colon || colon[-1] != ']')
+//		return NULL;
+//	return colon;
+//}
 
 // explicit raw reader (input = a given block of memory)
 static int parse_raw_binary_image_explicit(struct iio_image *x,
@@ -2503,6 +2504,7 @@ static int read_raw_named_image(struct iio_image *x, const char *filespec)
 static int read_beheaded_raw(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
+	(void)f; (void)header; (void)nheader;
 	const char *fn;
 	fn = global_variable_containing_the_name_of_the_last_opened_file;
 	if (!fn)
