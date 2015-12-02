@@ -2114,13 +2114,15 @@ static int read_beheaded_asc(struct iio_image *x,
 // 	- n characters are read
 // 	- a newline character is found
 // 	- the end of file is reached
-// returns the number of reac characters, not including the end zero
+// returns the number of read characters, not including the end zero
 // Calling this functions should always result in a valid string on l
 static int getlinen(char *l, int n, FILE *f)
 {
 	int c, i = 0;
 	while (i < n-1 && (c = fgetc(f)) != EOF && c != '\n')
-		l[i++] = c;
+		if (isprint(c))
+			l[i++] = c;
+	if (c == EOF) return -1;
 	l[i] = '\0';
 	return i;
 }
@@ -2131,6 +2133,7 @@ static void pds_parse_line(char *key, char *value, char *line)
 	int r = sscanf(line, "%s = %s\n", key, value);
 	if (r != 2) {
 		*key = *value = '\0'; return; }
+	IIO_DEBUG("PARSED \"%s\" = \"%s\"\n", key, value);
 }
 
 static int read_beheaded_pds(struct iio_image *x,
@@ -2155,7 +2158,7 @@ static int read_beheaded_pds(struct iio_image *x,
 	int sfmt = SAMPLEFORMAT_UINT;
 	bool in_object = false;
 	bool flip_h = false, flip_v = false, allturn = false;
-	while ((n = getlinen(line, nmax, f)) && cx++ < nmax)
+	while ((n = getlinen(line, nmax, f)) >= 0  && cx++ < nmax)
 	{
 		pds_parse_line(key, value, line);
 		if (!*key || !*value) continue;
@@ -2172,6 +2175,7 @@ static int read_beheaded_pds(struct iio_image *x,
 		if (!strcmp(key, "SAMPLE_TYPE")) {
 			if (strstr(value, "REAL")) sfmt = SAMPLEFORMAT_IEEEFP;
 			if (strstr(value, "UNSIGNED")) sfmt = SAMPLEFORMAT_UINT;
+			if (strstr(value, "INTEGER"))sfmt=SAMPLEFORMAT_UINT;
 		}
 		if (!strcmp(key, "SAMPLE_DISPLAY_DIRECTION"))
 			flip_h = allturn !=! strcmp(value, "RIGHT");
@@ -2950,7 +2954,7 @@ bool buffer_statistics_agree_with_csv(uint8_t *b, int n)
 	char tmp[n+1];
 	memcpy(tmp, b, n);
 	tmp[n] = '\0';
-	return (n = strspn(tmp, "0123456789.e+-,\n"));
+	return (n = strspn(tmp, "0123456789.e+-,na\n"));
 	//IIO_DEBUG("strcspn(\"%s\") = %d\n", tmp, r);
 }
 
