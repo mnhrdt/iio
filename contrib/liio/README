@@ -1,0 +1,6 @@
+Lua binding for iio
+
+There are two versions
+
+1. generic lua binding
+2. FFI binding for LuaJIT

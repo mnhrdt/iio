@@ -1,0 +1,2 @@
+c99 -shared -fPIC -rdynamic iio.c  -o iio.so -lpng -ltiff
+c99 -shared -fPIC -rdynamic -I/home/coco/src/lua-5.3.2/src liio.c  -o liio.so
