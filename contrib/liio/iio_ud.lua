@@ -1,4 +1,4 @@
-iio = require "liio"
+local iio = require "liio"
 
 x,w,h,pd = iio.read_image_float_vec("/tmp/lenak.png")
 
