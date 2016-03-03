@@ -97,7 +97,7 @@ end
 
 
 --local y = iio_read("/tmp/barbara.png")
-local y = iio_read("/tmp/dem.tif")
+local y = iio_read("/tmp/n.png")
 y.boundary = 0
 print("image has been read")
 --print(y:p(10,20,0))
