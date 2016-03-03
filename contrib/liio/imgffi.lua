@@ -2,7 +2,7 @@ local ffi = require("ffi")
 
 -- image container (a simple C struct)
 ffi.cdef[[
-struct image { int w, h, pd; float x[?]; };
+struct image { int w, h, pd, boundary; float x[?]; };
 ]]
 
 local image
@@ -12,15 +12,37 @@ local mt = {
 		x.w = w;
 		x.h = h
 		x.pd = pd
+		x.boundary = 0;
 		return x
 	end,
 	__len = function(x) return x.w * x.h * x.pd end,
-	__call = function(x,i,j,l)
-		local idx = x.pd * (x.w * j + i) + l
-		if (idx >= 0 and idx < #x) then
-			return x.x[idx]
+	__call =
+	function(x,i,j,l)
+		if (x.boundary == 0) then
+			if (l < 0 or l >= x.pd) then return 0 end
+			if (j < 0 or j >= x.h) then return 0 end
+			if (i < 0 or i >= x.w) then return 0 end
+			return x.x[x.pd*(j*x.w+i)+l]
+		elseif (x.boundary == 1) then
+			if (l < 0)     then l = 0        end
+			if (j < 0)     then j = 0        end
+			if (i < 0)     then i = 0        end
+			if (l >= x.pd) then l = x.pd - 1 end
+			if (j >= x.h)  then j = x.h - 1  end
+			if (i >= x.w)  then i = x.w - 1  end
+			return x.x[x.pd*(j*x.w+i)+l]
+		elseif (x.boundary == 2) then
+			i = i % x.w
+			j = j % x.h
+			l = l % x.pd
+			return x.x[x.pd*(j*x.w+i)+l]
 		else
-			return 0
+			local idx = x.pd * (x.w * j + i) + l
+			if (idx >= 0 and idx < #x) then
+				return x.x[idx]
+			else
+				return 0
+			end
 		end
 	end
 }
@@ -74,7 +96,9 @@ end
 --iio_write("cusa.tiff", x)
 
 
-local y = iio_read("/tmp/barbara.png")
+--local y = iio_read("/tmp/barbara.png")
+local y = iio_read("/tmp/dem.tif")
+y.boundary = 0
 print("image has been read")
 --print(y:p(10,20,0))
 local w = y.w
@@ -83,14 +107,32 @@ local pd = y.pd
 print(w)
 print(h)
 print(pd)
+print(y.boundary)
+
+
+
+
+
+print("TIME")
+local t = os.clock()
+
+-- the algorithm
 for j = 0,h-1 do
 for i = 0,w-1 do
 for l = 0,pd-1 do
-	--y.x[(j*w+i)*pd+l] = y.x[(j*w+i+1)*pd+l] - y.x[(j*w+i)*pd+l]
 	y.x[(j*w+i)*pd+l] = y(i+1,j,l) - y(i,j,l)
 end
 end
 end
+
+t = os.clock() - t
+print(t)
+
+
+
+
+
+
 print("computation has been computed")
 iio_write("kuza.tiff", y)
 print("image has been written")
