@@ -51,7 +51,7 @@
 #  define I_CAN_HAS_FMEMOPEN 1
 #endif
 
-#if _POSIX_C_SOURCE >= 200112L
+#if _POSIX_C_SOURCE >= 200112L || __OpenBSD__
 #  define I_CAN_HAS_MKSTEMP 1
 #endif
 
@@ -914,6 +914,7 @@ static void iio_convert_samples(struct iio_image *x, int desired_type)
 static void iio_hacky_colorize(struct iio_image *x, int pd)
 {
 	assert(!x->contiguous_data);
+	// TODO: do something sensible for 2 or 4 channels
 	if (x->pixel_dimension != 1)
 		fail("please, do not colorize color stuff");
 	int n = iio_image_number_of_elements(x);
