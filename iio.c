@@ -2309,7 +2309,7 @@ static int read_beheaded_csv(struct iio_image *x,
 //
 // w = width
 // h = height
-// d = pixel dimension (e.g. 1 or 3)
+// p = pixel dimension (e.g. 1 or 3)
 //
 // t =  one of "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64",
 // "UINT64", "FLOAT", "DOUBLE", "LONGDOUBLE", "HALF", "UINT1",
@@ -2456,10 +2456,11 @@ static int read_raw_named_image(struct iio_image *x, const char *filespec)
 		switch(*tok) {
 		case 'w': width           = field;       break;
 		case 'h': height          = field;       break;
+		case 'd':
 		case 'p': pixel_dimension = field;       break;
 		case 'o': offset          = field;       break;
-		case 'b': brokenness      = 1;                 break;
-		case 'e': endianness      = 1;                 break;
+		case 'b': brokenness      = field;       break;
+		case 'e': endianness      = field;       break;
 		case 't': sample_type     = iio_inttyp(1+tok); break;
 		case 'r': orientation     = tok[1]+256*tok[2]; break;
 		}
