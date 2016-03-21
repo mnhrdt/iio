@@ -22,14 +22,13 @@ local mt = {
 	__len = function(x) return x.w * x.h * x.pd end,
 
 	-- pixel-wise access with boundary condition
-	__call =
-	function(x,i,j,l)
-		if (x.boundary == 0) then
+	__call = function(x,i,j,l)
+		if (x.boundary == 0) then -- extrapolate by 0
 			if (l < 0 or l >= x.pd) then return 0 end
 			if (j < 0 or j >= x.h) then return 0 end
 			if (i < 0 or i >= x.w) then return 0 end
 			return x.x[x.pd*(j*x.w+i)+l]
-		elseif (x.boundary == 1) then
+		elseif (x.boundary == 1) then -- nearest neighbor extrapolation
 			if (l < 0)     then l = 0        end
 			if (j < 0)     then j = 0        end
 			if (i < 0)     then i = 0        end
@@ -37,7 +36,7 @@ local mt = {
 			if (j >= x.h)  then j = x.h - 1  end
 			if (i >= x.w)  then i = x.w - 1  end
 			return x.x[x.pd*(j*x.w+i)+l]
-		elseif (x.boundary == 2) then
+		elseif (x.boundary == 2) then -- periodic extrapolation
 			i = i % x.w
 			j = j % x.h
 			l = l % x.pd
@@ -50,7 +49,26 @@ local mt = {
 				return 0
 			end
 		end
-	end
+	end,
+
+	-- pixel-wise access with square brackets
+	__newindex = function(x, k, v)
+		-- not yet implemented
+		print("newindex")
+		print(x)
+		print(k)
+		print(v)
+	end,
+
+	-- everything else
+	__index = {
+		setsample = function(x, i, j, l, v)
+			if (l < 0 or l >= x.pd) then return end
+			if (j < 0 or j >= x.h ) then return end
+			if (i < 0 or i >= x.w ) then return end
+			x.x[x.pd*(j*x.w+i)+l] = v
+		end
+	},
 }
 image = ffi.metatype("struct image", mt)
 
