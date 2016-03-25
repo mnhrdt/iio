@@ -2001,7 +2001,7 @@ static int read_beheaded_bmp(struct iio_image *x,
 #include <ImfCRgbaFile.h>
 // EXTERNALIZED TO :  read_exr_float.cpp
 
-static int read_whole_exr(struct iio_image *x, char *filename)
+static int read_whole_exr(struct iio_image *x, const char *filename)
 {
 	struct ImfInputFile *f = ImfOpenInputFile(filename);
 	if (!f) fail("could not read exr from %s", filename);
