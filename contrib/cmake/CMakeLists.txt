@@ -82,7 +82,7 @@ MESSAGE( "FLAGS: ${C_FLAGS}")
 SET(IIO_LIB_SRCS ../../iio.h ../../iio.c ${IIO_LIB_EXTRA_SRCS})       #Define a variable that contains files of the lib
 ADD_LIBRARY(IIOLIB ${IIO_LIB_SRCS}) #Define that those files create the lib FooLib
 TARGET_LINK_LIBRARIES(IIOLIB ${LIBS})
-#SET_TARGET_PROPERTIES(IIOLIB PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS}" )
 
 
 # generate custom iio.o
@@ -121,7 +121,7 @@ message("${inc_list}")
 #SET_TARGET_PROPERTIES(iio PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
 
 ADD_EXECUTABLE (iion ../../misc/iio_test_named.c ../../iio.h ../../iio.c)
-TARGET_LINK_LIBRARIES(iion IIOLIB )
+TARGET_LINK_LIBRARIES(iion IIOLIB m)
 SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS} -I${PROJECT_SOURCE_DIR}/../../")
 
 
