@@ -2002,7 +2002,7 @@ static int read_beheaded_bmp(struct iio_image *x,
 #include <ImfCRgbaFile.h>
 // EXTERNALIZED TO :  read_exr_float.cpp
 
-static int read_whole_exr(struct iio_image *x, char *filename)
+static int read_whole_exr(struct iio_image *x, const char *filename)
 {
 	struct ImfInputFile *f = ImfOpenInputFile(filename);
 	if (!f) fail("could not read exr from %s", filename);
@@ -2650,6 +2650,15 @@ static int read_beheaded_whatever(struct iio_image *x,
 	return r;
 }
 
+
+// RAW PHOTO reader                                                               {{{2
+
+#ifdef I_USE_LIBRAW
+int try_reading_file_with_libraw(const char *fname, struct iio_image *x);
+int try_reading_file_with_libraw_4channels(const char *fname, struct iio_image *x);
+#endif
+
+
 // individual format writers                                                {{{1
 // PNG writer                                                               {{{2
 
@@ -3250,6 +3259,9 @@ static int read_image(struct iio_image *x, const char *fname)
 	} else if (comma_named_tiff(fname)) {
 		r = read_whole_tiff(x, fname);
 #endif//I_CAN_HAS_LIBTIFF
+#ifdef I_USE_LIBRAW
+	} else if (try_reading_file_with_libraw(fname, x)) {
+#endif//I_USE_LIBRAW
 	} else if (raw_prefix(fname)) {
 		r = read_raw_named_image(x, fname);
 	//} else if (rwa_prefix(fname)) {

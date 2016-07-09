@@ -28,7 +28,18 @@ FIND_PACKAGE(OPENEXR)
 IF (OPENEXR_FOUND) 
    INCLUDE_DIRECTORIES(${OPENEXR_INCLUDE_PATHS})
    SET(C_FLAGS "${C_FLAGS} -DI_CAN_HAS_LIBEXR")
-   SET( LIBS ${LIBS} ${OPENEXR_LIBRARIES})
+   SET(LIBS ${LIBS} ${OPENEXR_LIBRARIES})
+ENDIF()
+
+# IF AVAILABLE USE LIBRAW (needed for reading Photo RAW formats)
+FIND_PACKAGE(LibRaw) 
+# LibRaw_INCLUDE_DIR, where to find libraw.h
+# LibRaw_LIBRARIES, the libraries needed to use LibRaw (non-thread-safe)
+IF (LibRaw_FOUND) 
+   SET(C_FLAGS "${C_FLAGS} -DI_USE_LIBRAW")
+   INCLUDE_DIRECTORIES(${LibRaw_INCLUDE_DIR})
+   SET(LIBS ${LIBS} ${LibRaw_LIBRARIES})
+   SET(IIO_LIB_EXTRA_SRCS ../libraw_interface.cpp)    #c++ interface to libraw
 ENDIF()
 
 # OTHER LIBRARIES
@@ -36,21 +47,21 @@ FIND_PACKAGE(TIFF)
 IF(TIFF_FOUND)
    INCLUDE_DIRECTORIES(${TIFF_INCLUDE_DIR})
    #  LINK_DIRECTORIES(${TIFF_LIBRARY})
-   SET( LIBS ${LIBS} ${TIFF_LIBRARIES})
+   SET(LIBS ${LIBS} ${TIFF_LIBRARIES})
 ENDIF()
 
 FIND_PACKAGE(JPEG)
 if(JPEG_FOUND)
    INCLUDE_DIRECTORIES(${JPEG_INCLUDE_DIR})
    # LINK_DIRECTORIES(${JPEG_LIBRARY})
-   SET( LIBS ${LIBS} ${JPEG_LIBRARIES})
+   SET(LIBS ${LIBS} ${JPEG_LIBRARIES})
 ENDIF()
 
 FIND_PACKAGE(PNG)
 IF(PNG_FOUND)
    INCLUDE_DIRECTORIES(${PNG_INCLUDE_DIR})
    #  LINK_DIRECTORIES(${PNG_LIBRARY})
-   SET( LIBS ${LIBS} ${PNG_LIBRARIES})
+   SET(LIBS ${LIBS} ${PNG_LIBRARIES})
 ENDIF()
 
 
@@ -68,10 +79,10 @@ ENDIF()
 #
 SET(C_FLAGS "${C_FLAGS} -O3 -std=c99 -funroll-loops -Wno-unused -DNDEBUG")
 MESSAGE( "FLAGS: ${C_FLAGS}")
-SET(IIO_LIB_SRCS ../../iio.h ../../iio.c)       #Define a variable that contains files of the lib
+SET(IIO_LIB_SRCS ../../iio.h ../../iio.c ${IIO_LIB_EXTRA_SRCS})       #Define a variable that contains files of the lib
 ADD_LIBRARY(IIOLIB ${IIO_LIB_SRCS}) #Define that those files create the lib FooLib
 TARGET_LINK_LIBRARIES(IIOLIB ${LIBS})
-SET_TARGET_PROPERTIES(IIOLIB PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS}" )
 
 
 # generate custom iio.o
@@ -110,7 +121,7 @@ message("${inc_list}")
 #SET_TARGET_PROPERTIES(iio PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
 
 ADD_EXECUTABLE (iion ../../misc/iio_test_named.c ../../iio.h ../../iio.c)
-TARGET_LINK_LIBRARIES(iion IIOLIB )
+TARGET_LINK_LIBRARIES(iion IIOLIB m)
 SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS} -I${PROJECT_SOURCE_DIR}/../../")
 
 
