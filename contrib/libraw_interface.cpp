@@ -119,8 +119,8 @@ int try_reading_file_with_libraw(const char *fname, struct iio_image *x)
    //bool caca[3];
    x->sizes[0] = S.raw_width;
    x->sizes[1] = S.raw_height;
-   x->data = (void*) malloc(sizeof(char*)*2*S.raw_width*S.raw_height);
-   memcpy(x->data, RawProcessor.imgdata.rawdata.raw_image, sizeof(char*)*2*S.raw_width*S.raw_height);
+   x->data = (void*) malloc(sizeof(char)*2*S.raw_width*S.raw_height);
+   memcpy(x->data, RawProcessor.imgdata.rawdata.raw_image, sizeof(char)*2*S.raw_width*S.raw_height);
 
    if(verbose) printf("LIBRAW: Sent to IIO\n");
    return 1;

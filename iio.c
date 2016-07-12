@@ -3253,6 +3253,7 @@ static int read_image(struct iio_image *x, const char *fname)
 #endif//I_CAN_HAS_LIBTIFF
 #ifdef I_USE_LIBRAW
 	} else if (try_reading_file_with_libraw(fname, x)) {
+		r=0;
 #endif//I_USE_LIBRAW
 	} else if (raw_prefix(fname)) {
 		r = read_raw_named_image(x, fname);
