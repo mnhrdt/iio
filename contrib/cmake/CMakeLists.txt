@@ -35,7 +35,7 @@ ENDIF()
 FIND_PACKAGE(LibRaw) 
 # LibRaw_INCLUDE_DIR, where to find libraw.h
 # LibRaw_LIBRARIES, the libraries needed to use LibRaw (non-thread-safe)
-IF (LibRaw_FOUND) 
+IF (LibRaw_INCLUDE_DIR) 
    SET(C_FLAGS "${C_FLAGS} -DI_USE_LIBRAW")
    INCLUDE_DIRECTORIES(${LibRaw_INCLUDE_DIR})
    SET(LIBS ${LIBS} ${LibRaw_LIBRARIES})
