@@ -67,7 +67,7 @@ extern "C" {
 int try_reading_file_with_libraw(const char *fname, struct iio_image *x)
 {
    int ret;
-   int verbose=1;
+   int verbose=0;
    int shot_select = 0;
 
    LibRaw RawProcessor;
@@ -78,31 +78,31 @@ int try_reading_file_with_libraw(const char *fname, struct iio_image *x)
    //
    //OUT.shot_select=shot_selected;
 
-   if(verbose) printf("LIBRAW: Processing file %s\n",fname);
+   if(verbose) fprintf(stderr,"LIBRAW: Processing file %s\n",fname);
    if( (ret = RawProcessor.open_file(fname)) != LIBRAW_SUCCESS)
    {
-      fprintf(stderr,"LIBRAW: Cannot open %s: %s\n",fname,libraw_strerror(ret));
+      if(verbose) fprintf(stderr,"LIBRAW: Cannot open %s: %s\n",fname,libraw_strerror(ret));
       return 0; // no recycle b/c open file will recycle itself
    }
    if(verbose)
    {
-      printf("LIBRAW: Image size: %dx%d\nRaw size: %dx%d\n",S.width,S.height,S.raw_width,S.raw_height);
-      printf("LIBRAW: Margins: top=%d, left=%d\n",
+      fprintf(stderr,"LIBRAW: Image size: %dx%d\nRaw size: %dx%d\n",S.width,S.height,S.raw_width,S.raw_height);
+      fprintf(stderr,"LIBRAW: Margins: top=%d, left=%d\n",
             S.top_margin,S.left_margin);
    }
 
    if( (ret = RawProcessor.unpack() ) != LIBRAW_SUCCESS)
    {
-      fprintf(stderr,"LIBRAW: Cannot unpack %s: %s\n",fname,libraw_strerror(ret));
+      if(verbose) fprintf(stderr,"LIBRAW: Cannot unpack %s: %s\n",fname,libraw_strerror(ret));
       return 0;
    }
 
    if(verbose)
-      printf("LIBRAW: Unpacked....\n");
+      fprintf(stderr,"LIBRAW: Unpacked....\n");
 
    if(!(RawProcessor.imgdata.idata.filters || RawProcessor.imgdata.idata.colors == 1))
    {
-      printf("LIBRAW: Only Bayer-pattern RAW files supported, sorry....\n");
+      if(verbose) fprintf(stderr,"LIBRAW: Only Bayer-pattern RAW files supported, sorry....\n");
       return 0;
    }
 
@@ -122,7 +122,7 @@ int try_reading_file_with_libraw(const char *fname, struct iio_image *x)
    x->data = (void*) malloc(sizeof(char)*2*S.raw_width*S.raw_height);
    memcpy(x->data, RawProcessor.imgdata.rawdata.raw_image, sizeof(char)*2*S.raw_width*S.raw_height);
 
-   if(verbose) printf("LIBRAW: Sent to IIO\n");
+   if(verbose) fprintf(stderr,"LIBRAW: Sent to IIO\n");
    return 1;
 }
 
@@ -133,7 +133,7 @@ int try_reading_file_with_libraw(const char *fname, struct iio_image *x)
 int try_reading_file_with_libraw_4channels(const char *fname, struct iio_image *x)
 {
    int ret;
-   int verbose=1;
+   int verbose=0;
    int shot_select = 0;
 
    LibRaw RawProcessor;
@@ -144,36 +144,36 @@ int try_reading_file_with_libraw_4channels(const char *fname, struct iio_image *
    //
    //OUT.shot_select=shot_selected;
 
-   if(verbose) printf("LIBRAW: Processing file %s\n",fname);
+   if(verbose) fprintf(stderr,"LIBRAW: Processing file %s\n",fname);
    if( (ret = RawProcessor.open_file(fname)) != LIBRAW_SUCCESS)
    {
-      fprintf(stderr,"LIBRAW: Cannot open %s: %s\n",fname,libraw_strerror(ret));
+      if(verbose) fprintf(stderr,"LIBRAW: Cannot open %s: %s\n",fname,libraw_strerror(ret));
       return 0; // no recycle b/c open file will recycle itself
    }
    if(RawProcessor.imgdata.idata.is_foveon)
    {
-      printf("LIBRAW: Cannot process Foveon image %s\n",fname);
+      if(verbose) fprintf(stderr,"LIBRAW: Cannot process Foveon image %s\n",fname);
       return 0;
    }
    if(verbose)
    {
-      printf("LIBRAW: Image size: %dx%d\nRaw size: %dx%d\n",S.width,S.height,S.raw_width,S.raw_height);
-      printf("LIBRAW: Margins: top=%d, left=%d\n",
+      fprintf(stderr,"LIBRAW: Image size: %dx%d\nRaw size: %dx%d\n",S.width,S.height,S.raw_width,S.raw_height);
+      fprintf(stderr,"LIBRAW: Margins: top=%d, left=%d\n",
             S.top_margin,S.left_margin);
    }
 
    if( (ret = RawProcessor.unpack() ) != LIBRAW_SUCCESS)
    {
-      fprintf(stderr,"LIBRAW: Cannot unpack %s: %s\n",fname,libraw_strerror(ret));
+      if(verbose) fprintf(stderr,"LIBRAW: Cannot unpack %s: %s\n",fname,libraw_strerror(ret));
       return 0;
    }
 
    if(verbose)
-      printf("LIBRAW: Unpacked....\n");
+      fprintf(stderr,"LIBRAW: Unpacked....\n");
 
    if(!(RawProcessor.imgdata.idata.filters || RawProcessor.imgdata.idata.colors == 1))
    {
-      printf("LIBRAW: Only Bayer-pattern RAW files supported, sorry....\n");
+      if(verbose) fprintf(stderr,"LIBRAW: Only Bayer-pattern RAW files supported, sorry....\n");
       return 0;
    }
    RawProcessor.raw2image();
@@ -209,7 +209,7 @@ int try_reading_file_with_libraw_4channels(const char *fname, struct iio_image *
             }
 
 
-   if(verbose) printf("LIBRAW: Sent to IIO\n");
+   if(verbose) fprintf(stderr,"LIBRAW: Sent to IIO\n");
    return 1;
 }
 
