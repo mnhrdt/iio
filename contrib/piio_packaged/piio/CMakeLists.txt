@@ -2,8 +2,9 @@ CMAKE_MINIMUM_REQUIRED (VERSION 2.6) #specify the required version of cmake
 PROJECT (IIO)                        #give a name to the project/solution
 
 # ADD LOCAL PATH TO SEARCH MODULES
-LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_PREFIX}")
-SET (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+#LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_PREFIX}")
+#SET (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 
 
@@ -39,7 +40,7 @@ IF (LibRaw_INCLUDE_DIR)
    SET(C_FLAGS "${C_FLAGS} -DI_USE_LIBRAW")
    INCLUDE_DIRECTORIES(${LibRaw_INCLUDE_DIR})
    SET(LIBS ${LIBS} ${LibRaw_LIBRARIES})
-   SET(IIO_LIB_EXTRA_SRCS ../libraw_interface.cpp)    #c++ interface to libraw
+   SET(IIO_LIB_EXTRA_SRCS libraw_interface.cpp)    #c++ interface to libraw
 ENDIF()
 
 # OTHER LIBRARIES
@@ -79,7 +80,7 @@ ENDIF()
 #
 SET(C_FLAGS "${C_FLAGS} -O3 -std=c99 -funroll-loops -Wno-unused -DNDEBUG")
 MESSAGE( "FLAGS: ${C_FLAGS}")
-SET(IIO_LIB_SRCS ../../iio.h ../../iio.c ${IIO_LIB_EXTRA_SRCS})       #Define a variable that contains files of the lib
+SET(IIO_LIB_SRCS iio.h iio.c ${IIO_LIB_EXTRA_SRCS})       #Define a variable that contains files of the lib
 ADD_LIBRARY(IIOLIB ${IIO_LIB_SRCS}) #Define that those files create the lib FooLib
 TARGET_LINK_LIBRARIES(IIOLIB ${LIBS})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS}" )
@@ -120,12 +121,13 @@ message("${inc_list}")
 #TARGET_LINK_LIBRARIES(iio IIOLIB )
 #SET_TARGET_PROPERTIES(iio PROPERTIES COMPILE_FLAGS "${C_FLAGS}")
 
-ADD_EXECUTABLE (iion ../../misc/iio_test_named.c ../../iio.h ../../iio.c)
-TARGET_LINK_LIBRARIES(iion IIOLIB m)
-SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS} -I${PROJECT_SOURCE_DIR}/../../")
+#ADD_EXECUTABLE (iion ../misc/iio_test_named.c iio.h iio.c)
+#TARGET_LINK_LIBRARIES(iion IIOLIB m)
+#SET_TARGET_PROPERTIES(iion PROPERTIES COMPILE_FLAGS "${C_FLAGS} -I${PROJECT_SOURCE_DIR}")
 
 set(CMAKE_MACOSX_RPATH 1)
 ADD_LIBRARY(iio SHARED ${IIO_LIB_SRCS})
+set_target_properties(iio PROPERTIES SUFFIX ".so")
 TARGET_LINK_LIBRARIES(iio IIOLIB m)
 
 ##setup Config.cmake
@@ -134,7 +136,7 @@ TARGET_LINK_LIBRARIES(iio IIOLIB m)
 SET(PARAMETROS_BASE_DIR "${PROJECT_SOURCE_DIR}")
 SET(PARAMETROS_CMAKE_DIR "${PROJECT_BINARY_DIR}")
 SET(IIO_LIBS ${PROJECT_SOURCE_DIR}/libIIOLIB.a ${LIBS})
-SET(IIO_INCLUDE ${PROJECT_SOURCE_DIR}/../../)
+SET(IIO_INCLUDE ${PROJECT_SOURCE_DIR})
 MESSAGE( "${PROJECT_BINARY_DIR}" )
 MESSAGE( "${PROJECT_SOURCE_DIR}" )
 CONFIGURE_FILE(iioConfig.cmake.in

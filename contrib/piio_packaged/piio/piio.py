@@ -20,7 +20,7 @@ def read(filename):
    IIO: numpyarray = read(filename)
    '''
    from numpy import array, zeros, ctypeslib
-   from ctypes import c_int, c_float, c_void_p, CDLL, POINTER, cast, byref
+   from ctypes import c_int, c_float, c_void_p, POINTER, cast, byref
 
    iioread = libiio.iio_read_image_float_vec
    
@@ -45,7 +45,7 @@ def read(filename):
    
    # free the memory
    iiofreemem = libiio.freemem
-   iiofreemem(ptr);
+   iiofreemem(ptr)
    return data
 
 
@@ -53,7 +53,7 @@ def write(filename,data):
    '''
    IIO: write(filename,numpyarray)
    '''
-   from ctypes import CDLL, c_char_p, c_int, c_float
+   from ctypes import c_char_p, c_int, c_float
    from numpy.ctypeslib import ndpointer
 
    iiosave = libiio.iio_save_image_float_vec
@@ -69,7 +69,7 @@ def write(filename,data):
    iiosave(str(filename), data.astype('float32'), w, h, nch)
 
 
-#d = piio.read('kk.tif')
+#d = piio.read('testimg.tif')
 #print d.shape
 #print d[:,:,0] 
 #piio.write('kk2.tif',d)
