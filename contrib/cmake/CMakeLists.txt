@@ -40,6 +40,9 @@ IF (LibRaw_INCLUDE_DIR)
    INCLUDE_DIRECTORIES(${LibRaw_INCLUDE_DIR})
    SET(LIBS ${LIBS} ${LibRaw_LIBRARIES})
    SET(IIO_LIB_EXTRA_SRCS ../libraw_interface.cpp)    #c++ interface to libraw
+   # Some LibRaw versions depend on openmp 
+   find_package (OpenMP)
+   set (C_FLAGS "${C_FLAGS} ${OpenMP_C_FLAGS}")
 ENDIF()
 
 # OTHER LIBRARIES
