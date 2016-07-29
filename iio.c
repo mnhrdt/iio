@@ -30,6 +30,11 @@
 #include <string.h>
 #include <stdarg.h>
 
+#ifdef __MINGW32__ // needed for tmpfile(), this flag is also set by MINGW64 
+#include <windows.h>
+#endif
+
+
 #include "iio.h" // only for IIO_MAX_DIMENSION
 
 
@@ -1077,7 +1082,14 @@ static FILE *iio_fmemopen(void *data, size_t size)
 #elif  I_CAN_HAS_FUNOPEN // BSD case
 	fail("implement fmemopen using funopen here");
 #else // portable case
-	FILE *f = tmpfile();
+	FILE *f;
+	#ifdef __MINGW32__
+		char filename[FILENAME_MAX];
+		GetTempFileName(".","temp",0,filename);
+		f = fopen(filename,"w+bTD");
+	#else
+		f = tmpfile();
+	#endif // MINGW32
 	if (!f) fail("tmpfile failed");
 	int cx = fwrite(data, size, 1, f);
 	if (cx != 1) fail("fwrite failed");
