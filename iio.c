@@ -1085,6 +1085,7 @@ static FILE *iio_fmemopen(void *data, size_t size)
 	FILE *f;
 	#ifdef __MINGW32__
 		// creating a tempfile can be very slow
+		// this is extremely inefficient
 		char filename[FILENAME_MAX], pathname[FILENAME_MAX];
 		GetTempPath(FILENAME_MAX, pathname);
 		GetTempFileName(pathname,"temp",0,filename);
