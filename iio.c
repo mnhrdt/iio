@@ -30,7 +30,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-#ifdef __MINGW32__ // needed for tmpfile()
+#ifdef __MINGW32__ // needed for tmpfile(), this flag is also set by MINGW64 
 #include <windows.h>
 #endif
 
@@ -1084,7 +1084,7 @@ static FILE *iio_fmemopen(void *data, size_t size)
 #else // portable case
 	FILE *f;
 	#ifdef __MINGW32__
-		// this is extremely inefficient
+		// creating a tempfile can be very slow
 		char filename[FILENAME_MAX], pathname[FILENAME_MAX];
 		GetTempPath(FILENAME_MAX, pathname);
 		GetTempFileName(pathname,"temp",0,filename);
