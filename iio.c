@@ -1084,9 +1084,12 @@ static FILE *iio_fmemopen(void *data, size_t size)
 #else // portable case
 	FILE *f;
 	#ifdef __MINGW32__
-		char filename[FILENAME_MAX];
-		GetTempFileName(".","temp",0,filename);
+		// creating a tempfile can be very slow
+		char filename[FILENAME_MAX], pathname[FILENAME_MAX];
+		GetTempPath(FILENAME_MAX, pathname);
+		GetTempFileName(pathname,"temp",0,filename);
 		f = fopen(filename,"w+bTD");
+		IIO_DEBUG("creating MINGW temp file %s\n", filename);
 	#else
 		f = tmpfile();
 	#endif // MINGW32
