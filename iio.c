@@ -2348,7 +2348,7 @@ static int read_beheaded_vrt(struct iio_image *x,
    
    // obtain the path where the vrt file is located
    strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n);
-   dirname(dirvrt);
+   char* dirvrt2 = dirname(dirvrt);
 
 	while (1) {
 		sl = fgets(line, n, fin);
@@ -2362,7 +2362,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 		{
 			pos_cx = has_fname = 0;
 			int wt, ht;
-         sprintf(fullfname, "%s/%s", dirvrt, fname);
+         sprintf(fullfname, "%s/%s", dirvrt2, fname);
 			float *xt = iio_read_image_float(fullfname, &wt, &ht);
 			for (int j = 0; j < pos[3]; j++)
 			for (int i = 0; i < pos[2]; i++)
