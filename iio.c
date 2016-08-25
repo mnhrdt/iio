@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <libgen.h> // needed for dirname() multi-platform
 
 #ifdef __MINGW32__ // needed for tmpfile(), this flag is also set by MINGW64 
 #include <windows.h>
@@ -2324,16 +2325,6 @@ static int xml_get_tag_content(char *out, char *line, char *tag)
 	return 1;
 }
 
-char *gnu_dirname(char *path)
-{
-   char *base = strrchr(path, '/');
-   if (base) {
-      *base = '\0';
-   } else {
-      *path = '.'; *(path+1) = '\0';
-   }
-   return path;
-}
 
 static int read_beheaded_vrt(struct iio_image *x,
 		FILE *fin, char *header, int nheader)
@@ -2357,7 +2348,7 @@ static int read_beheaded_vrt(struct iio_image *x,
    
    // obtain the path where the vrt file is located
    strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n);
-   gnu_dirname(dirvrt);
+   dirname(dirvrt);
 
 	while (1) {
 		sl = fgets(line, n, fin);
