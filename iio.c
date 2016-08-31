@@ -2329,7 +2329,7 @@ static int xml_get_tag_content(char *out, char *line, char *tag)
 static int read_beheaded_vrt(struct iio_image *x,
 		FILE *fin, char *header, int nheader)
 {
-	int n = FILENAME_MAX + 0x200, cx = 0, w, h;
+	int n = FILENAME_MAX + 0x200, cx = 0, w = 0, h = 0;
 	char fname[n], dirvrt[n], fullfname[n], line[n], *sl = fgets(line, n, fin);
 	if (!sl) return 1;
 	cx += xml_get_numeric_attr(&w, line, "Dataset", "rasterXSize");
@@ -2345,10 +2345,10 @@ static int read_beheaded_vrt(struct iio_image *x,
 	x->data = xmalloc(w * h * sizeof(float));
 	float (*xx)[w] = x->data;
 	int pos[4], pos_cx = 0, has_fname = 0;
-   
-   // obtain the path where the vrt file is located
-   strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n);
-   char* dirvrt2 = dirname(dirvrt);
+
+	// obtain the path where the vrt file is located
+	strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n);
+	char* dirvrt2 = dirname(dirvrt);
 
 	while (1) {
 		sl = fgets(line, n, fin);
@@ -2362,7 +2362,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 		{
 			pos_cx = has_fname = 0;
 			int wt, ht;
-         sprintf(fullfname, "%s/%s", dirvrt2, fname);
+			snprintf(fullfname,FILENAME_MAX,"%s/%s",dirvrt2,fname);
 			float *xt = iio_read_image_float(fullfname, &wt, &ht);
 			for (int j = 0; j < pos[3]; j++)
 			for (int i = 0; i < pos[2]; i++)
@@ -2483,11 +2483,11 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 	size_t n = nsamples * ss;
 	memcpy(x->data, header_bytes + (char*)data, n);
 	if (endianness) {
-      if (ss == 2)
-		   switch_2endianness(x->data, nsamples);
-      if (ss >= 4)
-		   switch_4endianness(x->data, nsamples);
-   }
+		if (ss == 2)
+			switch_2endianness(x->data, nsamples);
+		if (ss >= 4)
+			switch_4endianness(x->data, nsamples);
+	}
 	return 0;
 }
 
