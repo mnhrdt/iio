@@ -173,7 +173,8 @@ static jmp_buf global_jump_buffer;
 #include <stdlib.h>
 
 #ifdef I_CAN_HAS_LINUX
-#  include <unistd.h>
+#include <sys/types.h>
+#include <unistd.h>
 static const char *emptystring = "";
 static const char *myname(void)
 {

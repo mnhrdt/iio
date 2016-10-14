@@ -115,6 +115,7 @@
 #define IIO_FORMAT_RWA 26
 #define IIO_FORMAT_CSV 27
 #define IIO_FORMAT_VRT 28
+#define IIO_FORMAT_FFD 29
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -172,7 +173,8 @@ static jmp_buf global_jump_buffer;
 #include <stdlib.h>
 
 #ifdef I_CAN_HAS_LINUX
-#  include <unistd.h>
+#include <sys/types.h>
+#include <unistd.h>
 static const char *emptystring = "";
 static const char *myname(void)
 {
@@ -540,6 +542,7 @@ static const char *iio_strfmt(int format)
 	M(VTK); M(CIMG); M(PAU); M(DICOM); M(PFM); M(NIFTI);
 	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(LUM); M(JUV);
 	M(PCM); M(ASC); M(RAW); M(RWA); M(PDS); M(CSV); M(VRT);
+	M(FFD);
 	M(UNRECOGNIZED);
 	default: fail("caca de la grossa (%d)", format);
 	}
@@ -2329,7 +2332,7 @@ static int xml_get_tag_content(char *out, char *line, char *tag)
 static int read_beheaded_vrt(struct iio_image *x,
 		FILE *fin, char *header, int nheader)
 {
-	int n = FILENAME_MAX + 0x200, cx = 0, w, h;
+	int n = FILENAME_MAX + 0x200, cx = 0, w = 0, h = 0;
 	char fname[n], dirvrt[n], fullfname[n], line[n], *sl = fgets(line, n, fin);
 	if (!sl) return 1;
 	cx += xml_get_numeric_attr(&w, line, "Dataset", "rasterXSize");
@@ -2345,10 +2348,10 @@ static int read_beheaded_vrt(struct iio_image *x,
 	x->data = xmalloc(w * h * sizeof(float));
 	float (*xx)[w] = x->data;
 	int pos[4], pos_cx = 0, has_fname = 0;
-   
-   // obtain the path where the vrt file is located
-   strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n);
-   char* dirvrt2 = dirname(dirvrt);
+
+	// obtain the path where the vrt file is located
+	strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n);
+	char* dirvrt2 = dirname(dirvrt);
 
 	while (1) {
 		sl = fgets(line, n, fin);
@@ -2362,7 +2365,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 		{
 			pos_cx = has_fname = 0;
 			int wt, ht;
-         sprintf(fullfname, "%s/%s", dirvrt2, fname);
+			snprintf(fullfname,FILENAME_MAX,"%s/%s",dirvrt2,fname);
 			float *xt = iio_read_image_float(fullfname, &wt, &ht);
 			for (int j = 0; j < pos[3]; j++)
 			for (int i = 0; i < pos[2]; i++)
@@ -2375,6 +2378,31 @@ static int read_beheaded_vrt(struct iio_image *x,
 			xfree(xt);
 		}
 	}
+	return 0;
+}
+
+// FARBFELD reader                                                          {{{2
+static int read_beheaded_ffd(struct iio_image *x,
+		FILE *fin, char *header, int nheader)
+{
+	for (int i = 0; i < 4; i++)
+		pick_char_for_sure(fin);
+	int s[8];
+	for (int i = 0; i < 8; i++)
+		s[i] = pick_char_for_sure(fin);
+	uint32_t w = s[3] + 0x100 * s[2] + 0x10000 * s[1] + 0x1000000 * s[0];
+	uint32_t h = s[7] + 0x100 * s[6] + 0x10000 * s[5] + 0x1000000 * s[4];
+
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = 4;
+	x->type = IIO_TYPE_UINT16;
+	x->contiguous_data = false;
+	x->data = xmalloc(w * h * 4 * sizeof(uint16_t));
+	int r = fread(x->data, 2, w*h*4, fin);
+	if (r != w*h*4) return 1;
+	switch_2endianness(x->data, r);
 	return 0;
 }
 
@@ -2483,11 +2511,11 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 	size_t n = nsamples * ss;
 	memcpy(x->data, header_bytes + (char*)data, n);
 	if (endianness) {
-      if (ss == 2)
-		   switch_2endianness(x->data, nsamples);
-      if (ss >= 4)
-		   switch_4endianness(x->data, nsamples);
-   }
+		if (ss == 2)
+			switch_2endianness(x->data, nsamples);
+		if (ss >= 4)
+			switch_4endianness(x->data, nsamples);
+	}
 	return 0;
 }
 
@@ -2999,8 +3027,6 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 		return IIO_FORMAT_BMP;
 	}
 
-
-
 	b[2] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[3] = add_to_header_buffer(f, b, nbuf, bufmax);
 
@@ -3018,13 +3044,16 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 		return IIO_FORMAT_JUV;
 
 	if (b[0]=='P' && b[1]=='I' && b[2]=='E' && b[3]=='H')
-		return IIO_FORMAT_FLO;
+		return IIO_FORMAT_FLO; // middlebury flow
 
 	if (b[0]=='P' && b[1]=='D' && b[2]=='S' && b[3]=='_')
-		return IIO_FORMAT_PDS;
+		return IIO_FORMAT_PDS; // NASA's planetary data science
 
 	if (b[0]=='<' && b[1]=='V' && b[2]=='R' && b[3]=='T')
-		return IIO_FORMAT_VRT;
+		return IIO_FORMAT_VRT; // gdal virtual image
+
+	if (b[0]=='f' && b[1]=='a' && b[2]=='r' && b[3]=='b')
+		return IIO_FORMAT_FFD; // farbfeld
 
 	b[4] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[5] = add_to_header_buffer(f, b, nbuf, bufmax);
@@ -3041,6 +3070,7 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 			return IIO_FORMAT_JPEG;
 	}
 #endif//I_CAN_HAS_LIBPNG
+
 
 	b[8] = add_to_header_buffer(f, b, nbuf, bufmax);
 	b[9] = add_to_header_buffer(f, b, nbuf, bufmax);
@@ -3143,6 +3173,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_RAW:   return read_beheaded_raw (x, f, h, hn);
 	case IIO_FORMAT_CSV:   return read_beheaded_csv (x, f, h, hn);
 	case IIO_FORMAT_VRT:   return read_beheaded_vrt (x, f, h, hn);
+	case IIO_FORMAT_FFD:   return read_beheaded_ffd (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
 	case IIO_FORMAT_PNG:   return read_beheaded_png (x, f, h, hn);
