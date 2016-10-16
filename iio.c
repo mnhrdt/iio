@@ -173,6 +173,7 @@ static jmp_buf global_jump_buffer;
 #include <stdlib.h>
 
 #ifdef I_CAN_HAS_LINUX
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 static const char *emptystring = "";
@@ -1279,15 +1280,23 @@ static int read_whole_jpeg(struct iio_image *x, FILE *f)
 static int read_beheaded_jpeg(struct iio_image *x,
 		FILE *fin, char *header, int nheader)
 {
-	long filesize;
-	// TODO (optimization): if "f" is rewindable, rewind it!
-	void *filedata = load_rest_of_file(&filesize, fin, header, nheader);
-	FILE *f = iio_fmemopen(filedata, filesize);
+   struct stat st;
+   fstat(fileno(fin), &st);
+	// (optimization): if "f" is rewindable, rewind it!
+   if (! S_ISFIFO(st.st_mode)) {
+      rewind(fin); 
+	   int r = read_whole_jpeg(x, fin);
+	   if (r) fail("read whole jpeg returned %d", r);
+   } else {
+	   long filesize;
+	   void *filedata = load_rest_of_file(&filesize, fin, header, nheader);
+	   FILE *f = iio_fmemopen(filedata, filesize);
 
-	int r = read_whole_jpeg(x, f);
-	if (r) fail("read whole jpeg returned %d", r);
-	fclose(f);
-	xfree(filedata);
+	   int r = read_whole_jpeg(x, f);
+	   if (r) fail("read whole jpeg returned %d", r);
+	   fclose(f);
+	   xfree(filedata);
+   }
 
 	return 0;
 }
