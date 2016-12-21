@@ -2157,6 +2157,16 @@ static void pds_parse_line(char *key, char *value, char *line)
 	IIO_DEBUG("PARSED \"%s\" = \"%s\"\n", key, value);
 }
 
+#ifndef SAMPLEFORMAT_UINT
+// definitions form tiff.h, needed for pds
+#define SAMPLEFORMAT_UINT  1
+#define SAMPLEFORMAT_INT  2
+#define SAMPLEFORMAT_IEEEFP  3
+#define SAMPLEFORMAT_VOID  4
+#define SAMPLEFORMAT_COMPLEXINT 5
+#define SAMPLEFORMAT_COMPLEXIEEEFP 6
+#endif//SAMPLEFORMAT_UINT
+
 static int read_beheaded_pds(struct iio_image *x,
 		FILE *f, char *header, int nheader)
 {
@@ -2911,6 +2921,21 @@ static void iio_save_image_as_pfm(const char *filename, struct iio_image *x)
 	xfclose(f);
 }
 
+// ASC writer                                                               {{{2
+static void iio_save_image_as_asc(const char *filename, struct iio_image *x)
+{
+	FILE *f = xfopen(filename, "w");
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	int d = x->sizes[2];
+	int pd = x->pixel_dimension;
+	float *t = x->data;
+	fprintf(f, "%d %d %d %d\n", w, h, d, pd);
+	for (int i = 0; i < w*h*d*pd; i++)
+		fprintf(f, "%a\n", t[i]);
+	fwrite(x->data, w * h * x->pixel_dimension * sizeof(float), 1 ,f);
+	xfclose(f);
+}
 
 // RIM writer                                                               {{{2
 
