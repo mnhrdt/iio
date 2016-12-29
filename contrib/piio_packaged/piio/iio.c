@@ -1143,6 +1143,21 @@ recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
 		clear[pd*i + l] = broken[n*l + i];
 }
 
+static
+void repair_broken_pixels(void *clear, void *broken, int n, int pd, int sz)
+{
+	FORL(pd) FORI(n)
+		memcpy(clear + sz*(pd*i+l), broken + sz*(n*l + i), sz);
+}
+
+static void repair_broken_pixels_inplace(void *x, int n, int pd, int sz)
+{
+	char *t = malloc(n * pd * sz);
+	memcpy(t, x, n * pd * sz);
+	repair_broken_pixels(x, t, n, pd, sz);
+	free(t);
+}
+
 static void
 recover_broken_pixels_double(double *clear, double *broken, int n, int pd)
 {
@@ -1328,7 +1343,7 @@ static TIFF *tiffopen_fancy(const char *filename, char *mode)
 	if (!tif) return tif;
 	for (int i = 0; i < index; i++)
 		TIFFReadDirectory(tif);
-	
+
 	return tif;
 }
 
@@ -1407,12 +1422,17 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	IIO_DEBUG("bps = %d\n", (int)bps);
 	IIO_DEBUG("spp = %d\n", (int)spp);
 	IIO_DEBUG("sls = %d\n", (int)scanline_size);
+	IIO_DEBUG("uss = %d\n", (int)uscanline_size);
 	int sls = TIFFScanlineSize(tif);
 	IIO_DEBUG("sls(r) = %d\n", (int)sls);
 	if ((int)scanline_size != sls)
 		fprintf(stderr, "scanline_size,sls = %d,%d\n", (int)scanline_size,sls);
 	//assert((int)scanline_size == sls);
-	scanline_size = sls;
+	if (!broken)
+		assert((int)scanline_size == sls);
+	else
+		assert((int)scanline_size == spp*sls);
+	assert((int)scanline_size >= sls);
 	uint8_t *data = xmalloc(w * h * spp * rbps);
 	uint8_t *buf = xmalloc(scanline_size);
 
@@ -1470,7 +1490,8 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	} else
 
 	// dump scanline data
-	FORI(h) {
+	if (broken && bps < 8) fail("cannot unpack broken scanlines");
+	if (!broken) FORI(h) {
 		r = TIFFReadScanline(tif, buf, i, 0);
 		if (r < 0) fail("error reading tiff row %d/%d", i, (int)h);
 
@@ -1480,7 +1501,21 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 					scanline_size, bps);
 			fmt_iio = IIO_TYPE_UINT8;
 		} else {
-			memcpy(data + i*scanline_size, buf, scanline_size);
+			memcpy(data + i*sls, buf, sls);
+		}
+	}
+	else {
+		FORI(h)
+		{
+			FORJ(spp)
+			{
+				r = TIFFReadScanline(tif, buf, i, j);
+				if (r < 0)
+					fail("tiff bad %d/%d;%d", i, (int)h, j);
+				memcpy(data + i*spp*sls + j*sls, buf, sls);
+			}
+			repair_broken_pixels_inplace(data + i*spp*sls,
+					w, spp, bps/8);
 		}
 	}
 	TIFFClose(tif);
@@ -2166,6 +2201,16 @@ static void pds_parse_line(char *key, char *value, char *line)
 		*key = *value = '\0'; return; }
 	IIO_DEBUG("PARSED \"%s\" = \"%s\"\n", key, value);
 }
+
+#ifndef SAMPLEFORMAT_UINT
+// definitions form tiff.h, needed for pds
+#define SAMPLEFORMAT_UINT  1
+#define SAMPLEFORMAT_INT  2
+#define SAMPLEFORMAT_IEEEFP  3
+#define SAMPLEFORMAT_VOID  4
+#define SAMPLEFORMAT_COMPLEXINT 5
+#define SAMPLEFORMAT_COMPLEXIEEEFP 6
+#endif//SAMPLEFORMAT_UINT
 
 static int read_beheaded_pds(struct iio_image *x,
 		FILE *f, char *header, int nheader)
@@ -2921,6 +2966,21 @@ static void iio_save_image_as_pfm(const char *filename, struct iio_image *x)
 	xfclose(f);
 }
 
+// ASC writer                                                               {{{2
+static void iio_save_image_as_asc(const char *filename, struct iio_image *x)
+{
+	FILE *f = xfopen(filename, "w");
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	int d = x->sizes[2];
+	int pd = x->pixel_dimension;
+	float *t = x->data;
+	fprintf(f, "%d %d %d %d\n", w, h, d, pd);
+	for (int i = 0; i < w*h*d*pd; i++)
+		fprintf(f, "%a\n", t[i]);
+	fwrite(x->data, w * h * x->pixel_dimension * sizeof(float), 1 ,f);
+	xfclose(f);
+}
 
 // RIM writer                                                               {{{2
 
