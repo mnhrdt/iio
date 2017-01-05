@@ -116,6 +116,7 @@
 #define IIO_FORMAT_CSV 27
 #define IIO_FORMAT_VRT 28
 #define IIO_FORMAT_FFD 29
+#define IIO_FORMAT_DLM 30
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -173,9 +174,7 @@ static jmp_buf global_jump_buffer;
 #include <stdlib.h>
 
 #ifdef I_CAN_HAS_LINUX
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+#  include <unistd.h>
 static const char *emptystring = "";
 static const char *myname(void)
 {
@@ -543,7 +542,7 @@ static const char *iio_strfmt(int format)
 	M(VTK); M(CIMG); M(PAU); M(DICOM); M(PFM); M(NIFTI);
 	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(LUM); M(JUV);
 	M(PCM); M(ASC); M(RAW); M(RWA); M(PDS); M(CSV); M(VRT);
-	M(FFD);
+	M(FFD); M(DLM);
 	M(UNRECOGNIZED);
 	default: fail("caca de la grossa (%d)", format);
 	}
@@ -1295,23 +1294,15 @@ static int read_whole_jpeg(struct iio_image *x, FILE *f)
 static int read_beheaded_jpeg(struct iio_image *x,
 		FILE *fin, char *header, int nheader)
 {
-   struct stat st;
-   fstat(fileno(fin), &st);
-	// (optimization): if "f" is rewindable, rewind it!
-   if (! S_ISFIFO(st.st_mode)) {
-      rewind(fin); 
-	   int r = read_whole_jpeg(x, fin);
-	   if (r) fail("read whole jpeg returned %d", r);
-   } else {
-	   long filesize;
-	   void *filedata = load_rest_of_file(&filesize, fin, header, nheader);
-	   FILE *f = iio_fmemopen(filedata, filesize);
+	long filesize;
+	// TODO (optimization): if "f" is rewindable, rewind it!
+	void *filedata = load_rest_of_file(&filesize, fin, header, nheader);
+	FILE *f = iio_fmemopen(filedata, filesize);
 
-	   int r = read_whole_jpeg(x, f);
-	   if (r) fail("read whole jpeg returned %d", r);
-	   fclose(f);
-	   xfree(filedata);
-   }
+	int r = read_whole_jpeg(x, f);
+	if (r) fail("read whole jpeg returned %d", r);
+	fclose(f);
+	xfree(filedata);
 
 	return 0;
 }
@@ -2350,6 +2341,16 @@ static int read_beheaded_csv(struct iio_image *x,
 	return 0;
 }
 
+// DLM reader                                                               {{{2
+
+static int read_beheaded_dlm(struct iio_image *x,
+		FILE *fin, char *header, int nheader)
+{
+	fail("dlm reader not implemented, use csv by now\n");
+	return 1;
+}
+
+
 // VRT reader                                                               {{{2
 //
 // VRT = GDAL Virtual images are a text file describing the relative
@@ -3165,6 +3166,10 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 	if (buffer_statistics_agree_with_csv(b, bufmax))
 		return IIO_FORMAT_CSV;
 
+	bool buffer_statistics_agree_with_dlm(uint8_t*, int);
+	if (buffer_statistics_agree_with_dlm(b, bufmax))
+		return IIO_FORMAT_DLM;
+
 	if (getenv("IIO_RAW"))
 		return IIO_FORMAT_RAW;
 
@@ -3176,7 +3181,16 @@ bool buffer_statistics_agree_with_csv(uint8_t *b, int n)
 	char tmp[n+1];
 	memcpy(tmp, b, n);
 	tmp[n] = '\0';
-	return (n = strspn(tmp, "0123456789.e+-,na\n"));
+	return (n = strspn(tmp, "0123456789.e+-,naifNAIF\n"));
+	//IIO_DEBUG("strcspn(\"%s\") = %d\n", tmp, r);
+}
+
+bool buffer_statistics_agree_with_dlm(uint8_t *b, int n)
+{
+	char tmp[n+1];
+	memcpy(tmp, b, n);
+	tmp[n] = '\0';
+	return (n = strspn(tmp, "0123456789.eE+- naifNAIF\n"));
 	//IIO_DEBUG("strcspn(\"%s\") = %d\n", tmp, r);
 }
 
@@ -3243,6 +3257,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_CSV:   return read_beheaded_csv (x, f, h, hn);
 	case IIO_FORMAT_VRT:   return read_beheaded_vrt (x, f, h, hn);
 	case IIO_FORMAT_FFD:   return read_beheaded_ffd (x, f, h, hn);
+	case IIO_FORMAT_DLM:   return read_beheaded_dlm (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
 	case IIO_FORMAT_PNG:   return read_beheaded_png (x, f, h, hn);
