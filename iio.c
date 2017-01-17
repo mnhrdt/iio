@@ -2888,6 +2888,11 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 	}
 	TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, tsf);
 
+    // define TIFFTAG_ROWSPERSTRIP to satisfy some readers (e.g. gdal)
+    uint32_t rows_per_strip = x->sizes[1];
+    rows_per_strip = TIFFDefaultStripSize(tif, rows_per_strip);
+    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
+
 	FORI(x->sizes[1]) {
 		void *line = i*sls + (char *)x->data;
 		int r = TIFFWriteScanline(tif, line, i, 0);
