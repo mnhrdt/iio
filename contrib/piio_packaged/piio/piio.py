@@ -66,7 +66,7 @@ def write(filename,data):
 
    iiosave.restype = None
    iiosave.argtypes = [c_char_p, ndpointer(c_float),c_int,c_int,c_int]
-   iiosave(str(filename), data.astype('float32'), w, h, nch)
+   iiosave(str(filename).encode(), data.astype('float32'), w, h, nch)
 
 
 #d = piio.read('testimg.tif')
