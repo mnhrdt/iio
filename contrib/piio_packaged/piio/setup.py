@@ -38,7 +38,7 @@ class post_build_ext(build_ext):
       import shutil
       current_dir = os.path.dirname(os.path.abspath(__file__))
       for fname in files:
-         shutil.copy(fname, current_dir)
+         shutil.copy(fname, os.path.join(current_dir, 'libiio.so'))
 
 
 setup(
