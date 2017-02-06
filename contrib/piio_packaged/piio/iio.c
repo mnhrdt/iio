@@ -20,46 +20,28 @@
 //
 
 
-// #includes                                                                {{{1
-
-#include <assert.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <libgen.h> // needed for dirname() multi-platform
-
-#ifdef __MINGW32__ // needed for tmpfile(), this flag is also set by MINGW64 
-#include <windows.h>
-#endif
-
-
-#include "iio.h" // only for IIO_MAX_DIMENSION
-
-
-
-#ifdef I_CAN_HAS_LIBPNG
-// ugly "feature" in png.h forces this header to be included first
-#  include <png.h>
-#endif
-
-
-
 // #defines                                                                 {{{1
 
 //
-// configuration
+// editable configuration
 //
+#define IIO_ABORT_ON_ERROR
+#define I_CAN_HAS_LIBPNG
+#define I_CAN_HAS_LIBJPEG
+#define I_CAN_HAS_LIBTIFF
+//#define I_CAN_HAS_LIBEXR
+#define I_CAN_HAS_WGET
+//#define I_CAN_HAS_WHATEVER
+//#define I_CAN_KEEP_TMP_FILES
 
-#if _POSIX_C_SOURCE >= 200809L
-#  define I_CAN_HAS_FMEMOPEN 1
-#endif
 
-#if _POSIX_C_SOURCE >= 200112L || __OpenBSD__
-#  define I_CAN_HAS_MKSTEMP 1
-#endif
+
+//
+// portability macros to choose OS features
+//
+//
+#define I_CAN_POSIX
+#define I_CAN_LINUX
 
 //
 // enum-like, only used internally
@@ -116,6 +98,7 @@
 #define IIO_FORMAT_CSV 27
 #define IIO_FORMAT_VRT 28
 #define IIO_FORMAT_FFD 29
+#define IIO_FORMAT_DLM 30
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -146,6 +129,44 @@
 
 
 
+
+// #includes                                                                {{{1
+
+#include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <libgen.h> // needed for dirname() multi-platform
+
+#ifdef __MINGW32__ // needed for tmpfile(), this flag is also set by MINGW64 
+#include <windows.h>
+#endif
+
+
+#include "iio.h" // only for IIO_MAX_DIMENSION
+
+
+#ifdef I_CAN_HAS_LIBPNG
+// ugly "feature" in png.h forces this header to be included here
+#  include <png.h>
+#endif
+
+// portabil
+
+#if _POSIX_C_SOURCE >= 200809L
+#  define I_CAN_HAS_FMEMOPEN 1
+#endif
+
+#if _POSIX_C_SOURCE >= 200112L || __OpenBSD__ || __APPLE__
+#  define I_CAN_HAS_MKSTEMP 1
+#endif
+
+
+
+
 // typedefs                                                                 {{{1
 
 typedef long long longlong;
@@ -164,7 +185,10 @@ typedef long double longdouble;
 #  ifndef I_CAN_HAS_LIBPNG
 #    include <setjmp.h>
 #  endif//I_CAN_HAS_LIBPNG
-static jmp_buf global_jump_buffer;
+#  if __STDC_VERSION__ >= 201112L
+_Thread_local
+#  endif
+jmp_buf global_jump_buffer;
 #endif//IIO_ABORT_ON_ERROR
 
 //#include <errno.h> // only for errno
@@ -172,10 +196,8 @@ static jmp_buf global_jump_buffer;
 #include <math.h> // for floorf
 #include <stdlib.h>
 
-#ifdef I_CAN_HAS_LINUX
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+#ifdef I_CAN_LINUX
+#  include <unistd.h>
 static const char *emptystring = "";
 static const char *myname(void)
 {
@@ -197,7 +219,7 @@ static const char *myname(void)
 }
 #else
 static const char *myname(void) { return ""; }
-#endif//I_CAN_HAS_LINUX
+#endif//I_CAN_LINUX
 
 static void fail(const char *fmt, ...) __attribute__((noreturn,format(printf,1,2)));
 static void fail(const char *fmt, ...)
@@ -266,6 +288,9 @@ static void xfree(void *p)
 	free(p);
 }
 
+#  if __STDC_VERSION__ >= 201112L
+_Thread_local
+#  endif
 static const
 char *global_variable_containing_the_name_of_the_last_opened_file = NULL;
 
@@ -310,8 +335,10 @@ static void xfclose(FILE *f)
 static int pick_char_for_sure(FILE *f)
 {
 	int c = getc(f);
-	if (EOF == c)
+	if (EOF == c) {
+		xfclose(f);
 		fail("input file ended before expected");
+	}
 	//IIO_DEBUG("pcs = '%c'\n", c);
 	return c;
 }
@@ -543,7 +570,7 @@ static const char *iio_strfmt(int format)
 	M(VTK); M(CIMG); M(PAU); M(DICOM); M(PFM); M(NIFTI);
 	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(LUM); M(JUV);
 	M(PCM); M(ASC); M(RAW); M(RWA); M(PDS); M(CSV); M(VRT);
-	M(FFD);
+	M(FFD); M(DLM);
 	M(UNRECOGNIZED);
 	default: fail("caca de la grossa (%d)", format);
 	}
@@ -1069,9 +1096,9 @@ static void delete_temporary_file(char *filename)
 {
 	(void)filename;
 #ifdef I_CAN_KEEP_TMP_FILES
-	remove(filename);
-#else
 	fprintf(stderr, "WARNING: kept temporary file %s around\n", filename);
+#else
+	remove(filename);
 #endif
 }
 
@@ -1146,8 +1173,10 @@ recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
 static
 void repair_broken_pixels(void *clear, void *broken, int n, int pd, int sz)
 {
+	char *c = clear;
+	char *b = broken;
 	FORL(pd) FORI(n)
-		memcpy(clear + sz*(pd*i+l), broken + sz*(n*l + i), sz);
+		memcpy(c + sz*(pd*i+l), b + sz*(n*l + i), sz);
 }
 
 static void repair_broken_pixels_inplace(void *x, int n, int pd, int sz)
@@ -1295,23 +1324,15 @@ static int read_whole_jpeg(struct iio_image *x, FILE *f)
 static int read_beheaded_jpeg(struct iio_image *x,
 		FILE *fin, char *header, int nheader)
 {
-   struct stat st;
-   fstat(fileno(fin), &st);
-	// (optimization): if "f" is rewindable, rewind it!
-   if (! S_ISFIFO(st.st_mode)) {
-      rewind(fin); 
-	   int r = read_whole_jpeg(x, fin);
-	   if (r) fail("read whole jpeg returned %d", r);
-   } else {
-	   long filesize;
-	   void *filedata = load_rest_of_file(&filesize, fin, header, nheader);
-	   FILE *f = iio_fmemopen(filedata, filesize);
+	long filesize;
+	// TODO (optimization): if "f" is rewindable, rewind it!
+	void *filedata = load_rest_of_file(&filesize, fin, header, nheader);
+	FILE *f = iio_fmemopen(filedata, filesize);
 
-	   int r = read_whole_jpeg(x, f);
-	   if (r) fail("read whole jpeg returned %d", r);
-	   fclose(f);
-	   xfree(filedata);
-   }
+	int r = read_whole_jpeg(x, f);
+	if (r) fail("read whole jpeg returned %d", r);
+	fclose(f);
+	xfree(filedata);
 
 	return 0;
 }
@@ -1487,7 +1508,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 			}
 		}
 		xfree(tbuf);
-	} else
+	} else {
 
 	// dump scanline data
 	if (broken && bps < 8) fail("cannot unpack broken scanlines");
@@ -1518,6 +1539,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 					w, spp, bps/8);
 		}
 	}
+    }
 	TIFFClose(tif);
 
 
@@ -2339,7 +2361,7 @@ static int read_beheaded_csv(struct iio_image *x,
 
 	// read data
 	char *delim = ",\n", *tok = strtok(filedata, delim);
-	while (tok)
+	while (tok && numbers < (float*)(x->data)+w*h)
 	{
 		*numbers++ = atof(tok);
 		tok = strtok(NULL, delim);
@@ -2349,6 +2371,20 @@ static int read_beheaded_csv(struct iio_image *x,
 	free(filedata);
 	return 0;
 }
+
+// DLM reader                                                               {{{2
+
+static int read_beheaded_dlm(struct iio_image *x,
+		FILE *fin, char *header, int nheader)
+{
+	(void)x;
+	(void)fin;
+	(void)header;
+	(void)nheader;
+	fail("dlm reader not implemented, use csv by now\n");
+	return 1;
+}
+
 
 // VRT reader                                                               {{{2
 //
@@ -2386,6 +2422,7 @@ static int xml_get_tag_content(char *out, char *line, char *tag)
 static int read_beheaded_vrt(struct iio_image *x,
 		FILE *fin, char *header, int nheader)
 {
+	(void)header; (void)nheader;
 	int n = FILENAME_MAX + 0x200, cx = 0, w = 0, h = 0;
 	char fname[n], dirvrt[n], fullfname[n], line[n], *sl = fgets(line, n, fin);
 	if (!sl) return 1;
@@ -2401,7 +2438,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 	x->contiguous_data = false;
 	x->data = xmalloc(w * h * sizeof(float));
 	float (*xx)[w] = x->data;
-	int pos[4], pos_cx = 0, has_fname = 0;
+	int pos[4] = {0,0,0,0}, pos_cx = 0, has_fname = 0;
 
 	// obtain the path where the vrt file is located
 	strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n);
@@ -2439,6 +2476,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 static int read_beheaded_ffd(struct iio_image *x,
 		FILE *fin, char *header, int nheader)
 {
+	(void)header; (void)nheader;
 	for (int i = 0; i < 4; i++)
 		pick_char_for_sure(fin);
 	int s[8];
@@ -2454,7 +2492,7 @@ static int read_beheaded_ffd(struct iio_image *x,
 	x->type = IIO_TYPE_UINT16;
 	x->contiguous_data = false;
 	x->data = xmalloc(w * h * 4 * sizeof(uint16_t));
-	int r = fread(x->data, 2, w*h*4, fin);
+	uint32_t r = fread(x->data, 2, w*h*4, fin);
 	if (r != w*h*4) return 1;
 	switch_2endianness(x->data, r);
 	return 0;
@@ -2719,12 +2757,14 @@ static int read_beheaded_raw(struct iio_image *x,
 
 //static int read_image(struct iio_image*, const char *);
 static int read_image_f(struct iio_image*, FILE *);
+#ifdef I_CAN_HAS_WHATEVER
 static int read_beheaded_whatever(struct iio_image *x,
 	       	FILE *fin, char *header, int nheader)
 {
 	// dump data to file
 	long filesize;
 	void *filedata = load_rest_of_file(&filesize, fin, header, nheader);
+	xfclose(fin);
 	char *filename = put_data_into_temporary_file(filedata, filesize);
 	xfree(filedata);
 
@@ -2747,6 +2787,7 @@ static int read_beheaded_whatever(struct iio_image *x,
 
 	return r;
 }
+#endif
 
 
 // RAW PHOTO reader                                                               {{{2
@@ -2875,6 +2916,11 @@ static void iio_save_image_as_tiff(const char *filename, struct iio_image *x)
 	}
 	TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, tsf);
 
+    // define TIFFTAG_ROWSPERSTRIP to satisfy some readers (e.g. gdal)
+    uint32_t rows_per_strip = x->sizes[1];
+    rows_per_strip = TIFFDefaultStripSize(tif, rows_per_strip);
+    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
+
 	FORI(x->sizes[1]) {
 		void *line = i*sls + (char *)x->data;
 		int r = TIFFWriteScanline(tif, line, i, 0);
@@ -2967,6 +3013,7 @@ static void iio_save_image_as_pfm(const char *filename, struct iio_image *x)
 }
 
 // ASC writer                                                               {{{2
+inline
 static void iio_save_image_as_asc(const char *filename, struct iio_image *x)
 {
 	FILE *f = xfopen(filename, "w");
@@ -2979,6 +3026,21 @@ static void iio_save_image_as_asc(const char *filename, struct iio_image *x)
 	for (int i = 0; i < w*h*d*pd; i++)
 		fprintf(f, "%a\n", t[i]);
 	fwrite(x->data, w * h * x->pixel_dimension * sizeof(float), 1 ,f);
+	xfclose(f);
+}
+
+// CSV writer                                                               {{{2
+static void iio_save_image_as_csv(const char *filename, struct iio_image *x)
+{
+	FILE *f = xfopen(filename, "w");
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	assert(x->sizes[2] == 1);
+	assert(x->pixel_dimension == 1);
+	assert(x->type == IIO_TYPE_FLOAT);
+	float *t = x->data;
+	for (int i = 0; i < w*h; i++)
+		fprintf(f, "%.9g%c", t[i], (i+1)%w?',':'\n');
 	xfclose(f);
 }
 
@@ -3165,6 +3227,10 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 	if (buffer_statistics_agree_with_csv(b, bufmax))
 		return IIO_FORMAT_CSV;
 
+	bool buffer_statistics_agree_with_dlm(uint8_t*, int);
+	if (buffer_statistics_agree_with_dlm(b, bufmax))
+		return IIO_FORMAT_DLM;
+
 	if (getenv("IIO_RAW"))
 		return IIO_FORMAT_RAW;
 
@@ -3176,7 +3242,16 @@ bool buffer_statistics_agree_with_csv(uint8_t *b, int n)
 	char tmp[n+1];
 	memcpy(tmp, b, n);
 	tmp[n] = '\0';
-	return (n = strspn(tmp, "0123456789.e+-,na\n"));
+	return (n = strspn(tmp, "0123456789.e+-,naifNAIF\n"));
+	//IIO_DEBUG("strcspn(\"%s\") = %d\n", tmp, r);
+}
+
+bool buffer_statistics_agree_with_dlm(uint8_t *b, int n)
+{
+	char tmp[n+1];
+	memcpy(tmp, b, n);
+	tmp[n] = '\0';
+	return (n = strspn(tmp, "0123456789.eE+- naifNAIF\n"));
 	//IIO_DEBUG("strcspn(\"%s\") = %d\n", tmp, r);
 }
 
@@ -3243,6 +3318,7 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_CSV:   return read_beheaded_csv (x, f, h, hn);
 	case IIO_FORMAT_VRT:   return read_beheaded_vrt (x, f, h, hn);
 	case IIO_FORMAT_FFD:   return read_beheaded_ffd (x, f, h, hn);
+	case IIO_FORMAT_DLM:   return read_beheaded_dlm (x, f, h, hn);
 
 #ifdef I_CAN_HAS_LIBPNG
 	case IIO_FORMAT_PNG:   return read_beheaded_png (x, f, h, hn);
@@ -3273,11 +3349,11 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 	case IIO_FORMAT_RAFA:   return read_beheaded_rafa (x, f, h, hn);
 	*/
 
-//#ifdef I_CAN_HAS_WHATEVER
+#ifdef I_CAN_HAS_WHATEVER
 	case IIO_FORMAT_UNRECOGNIZED: return read_beheaded_whatever(x,f,h,hn);
-//#else
-//	case IIO_FORMAT_UNRECOGNIZED: return -2;
-//#endif
+#else
+	case IIO_FORMAT_UNRECOGNIZED: return -2;
+#endif
 
 	default:              return -17;
 	}
@@ -3399,7 +3475,7 @@ static int read_image(struct iio_image *x, const char *fname)
 	case 2: IIO_DEBUG("READ IMAGE sizes = %d x %d\n",x->sizes[0],x->sizes[1]);break;
 	case 3: IIO_DEBUG("READ IMAGE sizes = %d x %d x %d\n",x->sizes[0],x->sizes[1],x->sizes[2]);break;
 	case 4: IIO_DEBUG("READ IMAGE sizes = %d x %d x %d x %d\n",x->sizes[0],x->sizes[1],x->sizes[2],x->sizes[3]);break;
-	default: fail("caca [dimension = %d]", x->dimension);
+	default: fail("invalid dimension [%d]", x->dimension);
 	}
 	IIO_DEBUG("READ IMAGE pixel_dimension = %d\n",x->pixel_dimension);
 	IIO_DEBUG("READ IMAGE type = %s\n", iio_strtyp(x->type));
@@ -3852,6 +3928,11 @@ static void iio_save_image_default(const char *filename, struct iio_image *x)
 	if (string_suffix(filename, ".pfm") && typ == IIO_TYPE_FLOAT
 		&& (x->pixel_dimension == 1 || x->pixel_dimension == 3)) {
 		iio_save_image_as_pfm(filename, x);
+		return;
+	}
+	if (string_suffix(filename, ".csv") && typ == IIO_TYPE_FLOAT
+				&& x->pixel_dimension == 1) {
+		iio_save_image_as_csv(filename, x);
 		return;
 	}
 	if (string_suffix(filename, ".mw") && typ == IIO_TYPE_FLOAT

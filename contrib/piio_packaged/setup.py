@@ -16,7 +16,7 @@ def getmodulesetup():
       iiomodule = Extension('piio.libiio',  
           libraries = ['png','jpeg','tiff'],
           #language=['c'],
-          extra_compile_args = ['-std=c99','-DNDEBUG','-O3'], 
+          extra_compile_args = ['-std=gnu99','-DNDEBUG','-O3'], 
           sources = ['piio/iio.c','piio/freemem.c']
          )
    return [iiomodule]
