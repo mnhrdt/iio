@@ -3872,10 +3872,10 @@ static bool this_float_is_actually_a_byte(float x)
 	return (x == floor(x)) && (x >= 0) && (x < 256);
 }
 
-static bool this_float_is_actually_a_short(float x)
-{
-	return (x == floor(x)) && (x >= 0) && (x < 65536);
-}
+//static bool this_float_is_actually_a_short(float x)
+//{
+//	return (x == floor(x)) && (x >= 0) && (x < 65536);
+//}
 
 static bool these_floats_are_actually_bytes(float *t, int n)
 {
