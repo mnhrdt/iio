@@ -31,14 +31,14 @@ class post_build_ext(build_ext):
       # Call parent build_ext
       build_ext.run(self)
 
-      print "running post_build_ext (copy libiio.so to piio)"
+      print("running post_build_ext (copy libiio.so to piio)")
       # Recover the produced library and copy it to the piio directory
       files = self.get_outputs()
       # the current dir
       import shutil
       current_dir = os.path.dirname(os.path.abspath(__file__))
       for fname in files:
-         shutil.copy(fname, current_dir)
+         shutil.copy(fname, os.path.join(current_dir, 'libiio.so'))
 
 
 setup(
