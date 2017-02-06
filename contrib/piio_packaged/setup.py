@@ -9,7 +9,7 @@ def getmodulesetup():
       iiomodule = Extension('piio.libiio',  
           libraries = ['png','jpeg','tiff','raw'],
           #language=['c'],
-          extra_compile_args = ['-DNDEBUG','-O3', '-DI_USE_LIBRAW'], 
+          extra_compile_args = ['-std=gnu99', '-DNDEBUG','-O3', '-DI_USE_LIBRAW'], 
           sources = ['piio/iio.c','piio/freemem.c','piio/libraw_interface.cpp']
          )
    else: 
