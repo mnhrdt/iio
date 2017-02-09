@@ -1,4 +1,4 @@
-CFLAGS += -fPIC
+override CFLAGS := $(CFLAGS) -fPIC
 LIBS = -lpng -ljpeg -ltiff
 
 libiio.so: iio.o freemem.o
