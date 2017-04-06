@@ -3621,6 +3621,17 @@ uint16_t *iio_read_image_uint16_vec(const char *fname, int *w, int *h, int *pd)
 }
 
 // API 2D
+double *iio_read_image_double_split(const char *fname, int *w, int *h, int *pd)
+{
+	double *r = iio_read_image_double_vec(fname, w, h, pd);
+	if (!r) return rfail("could not read image");
+	double *rbroken = xmalloc(*w**h**pd*sizeof*rbroken);
+	break_pixels_double(rbroken, r, *w**h, *pd);
+	xfree(r);
+	return rbroken;
+}
+
+// API 2D
 uint8_t (*iio_read_image_uint8_rgb(const char *fname, int *w, int *h))[3]
 {
 	struct iio_image x[1];
@@ -4261,7 +4272,6 @@ void iio_write_image_int(char *filename, int *data, int w, int h)
 	iio_write_image_default(filename, x);
 }
 
-
 void iio_write_image_uint8_vec(char *filename, uint8_t *data,
 		int w, int h, int pd)
 {
@@ -4274,6 +4284,15 @@ void iio_write_image_uint8_vec(char *filename, uint8_t *data,
 	x->data = data;
 	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
+}
+
+void iio_write_image_uint8_split(char *filename, uint8_t *data,
+		int w, int h, int pd)
+{
+	uint8_t *rdata = xmalloc(w*h*pd*sizeof*rdata);
+	recover_broken_pixels_uint8(rdata, data, w*h, pd);
+	iio_write_image_uint8_vec(filename, rdata, w, h, pd);
+	xfree(rdata);
 }
 
 void iio_write_image_uint16_vec(char *filename, uint16_t *data,
