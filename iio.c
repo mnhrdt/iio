@@ -1177,6 +1177,27 @@ recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
 		clear[pd*i + l] = broken[n*l + i];
 }
 
+
+static void break_pixels_uint8(uint8_t *broken, uint8_t *clear, int n, int pd)
+{
+	FORI(n) FORL(pd)
+		broken[n*l + i] = clear[pd*i + l];
+}
+
+static void break_pixels_double(double *broken, double *clear, int n, int pd)
+{
+	FORI(n) FORL(pd)
+		broken[n*l + i] = clear[pd*i + l];
+}
+
+static void
+recover_broken_pixels_uint8(uint8_t *clear, uint8_t *broken, int n, int pd)
+{
+	FORL(pd) FORI(n)
+		clear[pd*i + l] = broken[n*l + i];
+}
+
+
 static
 void repair_broken_pixels(void *clear, void *broken, int n, int pd, int sz)
 {
@@ -4058,7 +4079,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 				|| (typ==IIO_TYPE_UINT8&&x->pixel_dimension==2)
 		   )
 		{
-			if (typ == IIO_TYPE_FLOAT) {
+			if (typ == IIO_TYPE_FLOAT || typ == IIO_TYPE_DOUBLE) {
 				void *old_data = x->data;
 				x->data = xmalloc(nsamp*sizeof(float));
 				memcpy(x->data, old_data, nsamp*sizeof(float));
