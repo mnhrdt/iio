@@ -4111,7 +4111,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 				void *old_data = x->data;
 				int ss = iio_image_sample_size(x);
 				x->data = xmalloc(nsamp*ss);
-				memcpy(x->data, old_data, ss);
+				memcpy(x->data, old_data, nsamp*ss);
 				iio_convert_samples(x, IIO_TYPE_UINT16);
 				iio_write_image_default(filename, x);//recursive
 				xfree(x->data);
