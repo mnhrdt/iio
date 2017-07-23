@@ -39,7 +39,7 @@ extern "C" {
 #include "iio.h"
    struct iio_image {
       int dimension;        // 1, 2, 3 or 4, typically
-      int sizes[IIO_MAX_DIMENSION];
+      int sizes[20];
       int pixel_dimension;
       int type;             // IIO_TYPE_*
 
