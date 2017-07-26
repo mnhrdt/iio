@@ -29,7 +29,7 @@ def read(filename):
    nch=c_int()
    
    iioread.restype = c_void_p  # it's like this
-   tptr = iioread(str(filename),byref(w),byref(h),byref(nch))
+   tptr = iioread(bytes(filename,encoding="utf8"),byref(w),byref(h),byref(nch))
    c_float_p = POINTER(c_float)       # define a new type of pointer
    ptr = cast(tptr, c_float_p)
    #print w,h,nch
@@ -66,7 +66,7 @@ def write(filename,data):
 
    iiosave.restype = None
    iiosave.argtypes = [c_char_p, ndpointer(c_float),c_int,c_int,c_int]
-   iiosave(str(filename).encode(), data.astype('float32'), w, h, nch)
+   iiosave(str(filename).encode("utf8"), data.astype('float32'), w, h, nch)
 
 
 #d = piio.read('testimg.tif')
