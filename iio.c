@@ -2502,7 +2502,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 	if (!sl) return 1;
 	cx += xml_get_numeric_attr(&w, line, "Dataset", "rasterXSize");
 	cx += xml_get_numeric_attr(&h, line, "Dataset", "rasterYSize");
-	if (!w*h) return 2;
+	if (!w || !h) return 2;
 	if (cx != 2) return 3;
 	x->dimension = 2;
 	x->sizes[0] = w;
@@ -3277,15 +3277,29 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 #endif//I_CAN_HAS_LIBPNG
 
 
-	b[8] = add_to_header_buffer(f, b, nbuf, bufmax);
-	b[9] = add_to_header_buffer(f, b, nbuf, bufmax);
-	b[10] = add_to_header_buffer(f, b, nbuf, bufmax);
-	b[11] = add_to_header_buffer(f, b, nbuf, bufmax);
+	if (!strchr((char*)b, '\n')) // protect against very short ASC headers
+	{
+		int cx = 8;
+		for (; cx <= 11; cx++)
+		{
+			b[cx] = add_to_header_buffer(f, b, nbuf, bufmax);
+			if (b[cx] == '\n')
+				break;
+		}
+		if (cx == 12)
+		{
+			if (b[8]=='F'&&b[9]=='L'&&b[10]=='O'&&b[11]=='A')
+				return IIO_FORMAT_LUM;
+			if (b[8]=='1'&&b[9]=='2'&&b[10]=='L'&&b[11]=='I')
+				return IIO_FORMAT_LUM;
+		}
+	}
 
-	if (b[8]=='F'&&b[9]=='L'&&b[10]=='O'&&b[11]=='A')
-		return IIO_FORMAT_LUM;
-	if (b[8]=='1'&&b[9]=='2'&&b[10]=='L'&&b[11]=='I')
-		return IIO_FORMAT_LUM;
+	//b[8] = add_to_header_buffer(f, b, nbuf, bufmax);
+	//b[9] = add_to_header_buffer(f, b, nbuf, bufmax);
+	//b[10] = add_to_header_buffer(f, b, nbuf, bufmax);
+	//b[11] = add_to_header_buffer(f, b, nbuf, bufmax);
+
 
 	if (!strchr((char*)b, '\n'))
 		line_to_header_buffer(f, b, nbuf, bufmax);
