@@ -210,7 +210,7 @@ static const char *myname(void)
 #  define n 0x29a
 	static char buf[n];
 	long p = getpid();
-	snprintf(buf, n, "/proc/%d/cmdline", p);
+	snprintf(buf, n, "/proc/%ld/cmdline", p);
 	FILE *f = fopen(buf, "r");
 	if (!f) return emptystring;
 	int c, i = 0;
