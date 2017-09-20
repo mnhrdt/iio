@@ -209,7 +209,7 @@ static const char *myname(void)
 {
 #  define n 0x29a
 	static char buf[n];
-	pid_t p = getpid();
+	long p = getpid();
 	snprintf(buf, n, "/proc/%d/cmdline", p);
 	FILE *f = fopen(buf, "r");
 	if (!f) return emptystring;
