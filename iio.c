@@ -25,7 +25,7 @@
 //
 // editable configuration
 //
-#define IIO_ABORT_ON_ERROR
+//#define IIO_ABORT_ON_ERROR
 #define I_CAN_HAS_LIBPNG
 #define I_CAN_HAS_LIBJPEG
 #define I_CAN_HAS_LIBTIFF
@@ -4431,6 +4431,11 @@ void iio_write_image_uint16_vec(char *filename, uint16_t *data,
 	x->data = data;
 	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
+}
+
+void iio_free(char *p)
+{
+	xfree(p);
 }
 
 // API (deprecated)                                                         {{{1
