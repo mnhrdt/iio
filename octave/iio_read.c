@@ -13,15 +13,17 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	for (int i = 0; i < nrhs; i++)
 	{
 		char *f = mxArrayToString(prhs[i]);
-		int s[3];
-		double *x = iio_read_image_double_vec(f, s, s+1, s+2);
+		int w, h, d;
+		double *x = iio_read_image_double_vec(f, &w, &h, &d);
 		mxFree(f);
 		if (!x) continue;
-		mwSize S[3] = {s[0], s[1], s[2]};
+		mwSize S[3] = {h, w, d};
 		plhs[i] = mxCreateNumericArray(3, S, mxDOUBLE_CLASS, mxREAL);
 		double *X = mxGetPr(plhs[i]);
-		for (int j = 0; j < s[0]*s[1]*s[2]; j++)
-			X[j] = x[j];
+		for (int j = 0; j < h; j++)
+		for (int i = 0; i < w; i++)
+		for (int k = 0; k < d; k++)
+			X[w*h*k + (i*h+j)] = x[(j*w+i)*d + k];
 		iio_free(x);
 	}
 }
