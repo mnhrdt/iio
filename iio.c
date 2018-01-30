@@ -3348,6 +3348,8 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 			return IIO_FORMAT_JPEG;
 		if (b[3]==0xee || b[3]==0xed) // Adobe JPEG
 			return IIO_FORMAT_JPEG;
+		if (b[3]==0xdb) // Raw JPEG
+			return IIO_FORMAT_JPEG;
 	}
 #endif//I_CAN_HAS_LIBPNG
 
