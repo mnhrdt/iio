@@ -16,7 +16,7 @@ canvas = tkinter.Canvas(window, width=WIDTH, height=HEIGHT)
 canvas.pack()
 xdata = b"P5 %d %d 255\n" % (WIDTH, HEIGHT) + x_bytes + x_bytes + x_bytes
 image = tkinter.PhotoImage(data=xdata, format="PPM")
-canvas.create_image(0, 0, image=image, anchor=tkinter.NW)
+canvas.create_image(1, 1, image=image, anchor=tkinter.NW)
 
 posx = 100
 posy = 100
