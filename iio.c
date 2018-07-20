@@ -182,7 +182,7 @@
 #  define I_CAN_HAS_FMEMOPEN 1
 #endif
 
-#if _POSIX_C_SOURCE >= 200112L || __OpenBSD__ || __APPLE__
+#if _POSIX_C_SOURCE >= 200112L || __OpenBSD__ || __DragonFly__ || __FreeBSD__ || __APPLE__
 #  define I_CAN_HAS_MKSTEMP 1
 #endif
 
@@ -412,7 +412,7 @@ static void fill_temporary_filename(char *out)
 		static char buf[L_tmpnam+1];
 		char *tfn = tmpnam(buf);
 #endif//I_CAN_HAS_MKSTEMP
-		strncpy(out, tfn, FILENAME_MAX);
+		snprintf(out, FILENAME_MAX, "%s", tfn);
 }
 
 
@@ -1446,8 +1446,8 @@ static TIFF *tiffopen_fancy(const char *filename, char *mode)
 
 	if (aftercomma != ndigits) goto def;
 
-	char buf[FILENAME_MAX];
-	strncpy(buf, filename, FILENAME_MAX);
+	char buf[strlen(filename)];
+	snprintf(buf, strlen(filename), "%s", filename);
 	comma = strrchr(buf, ',');
 	*comma = '\0';
 	int index = atoi(comma + 1);
@@ -3457,7 +3457,7 @@ static bool comma_named_tiff(const char *filename)
 	if (lnumber != ldigits) return false;
 
 	char rfilename[FILENAME_MAX];
-	strncpy(rfilename, filename, FILENAME_MAX);
+	snprintf(rfilename, FILENAME_MAX, "%s", filename);
 	comma = rfilename + (comma - filename);
 	*comma = '\0';
 
