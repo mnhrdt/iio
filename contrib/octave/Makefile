@@ -1,4 +1,5 @@
-MEX     = mkoctfile --mex
+MEX     = mex                # for matlab
+MEX     = mkoctfile --mex    # for octave
 
 LDLIBS  = -lpng -ltiff -ljpeg
 CFLAGS  = -fPIC
