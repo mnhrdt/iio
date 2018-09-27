@@ -61,7 +61,7 @@ def write(filename,data):
    from numpy.ctypeslib import ndpointer
    from numpy import ascontiguousarray
 
-   iiosave = libiio.iio_save_image_float_vec
+   iiosave = libiio.iio_write_image_float_vec
 
    h  =data.shape[0]
    w  =data.shape[1]
