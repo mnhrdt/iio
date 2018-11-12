@@ -4,7 +4,7 @@ import numpy
 import tkinter
 import piio
 
-x = piio.read("/home/coco/y.png").squeeze()
+x = piio.read("x.png").squeeze()
 x = numpy.uint8(x)
 x_bytes = x.data.tobytes()
 
