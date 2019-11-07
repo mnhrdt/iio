@@ -1451,12 +1451,12 @@ static TIFF *tiffopen_fancy(const char *filename, char *mode)
 	int ndigits = strspn(comma + 1, "0123456789");
 
 	if (aftercomma != ndigits) goto def;
+	int index = atoi(comma + 1);
 
 	char buf[strlen(filename)];
 	snprintf(buf, strlen(filename), "%s", filename);
 	comma = strrchr(buf, ',');
 	*comma = '\0';
-	int index = atoi(comma + 1);
 
 	TIFF *tif = TIFFOpen(buf, mode);
 	if (!tif) return tif;
