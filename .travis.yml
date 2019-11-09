@@ -1,3 +1,5 @@
+dist: bionic
+
 language: c
 
 addons:
@@ -9,7 +11,6 @@ addons:
 matrix:
   include:
     - os: linux
-    - os: osx
 
 script:
   - make -C contrib/octave test
