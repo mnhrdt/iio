@@ -1,0 +1,15 @@
+language: c
+
+addons:
+  apt:
+    packages:
+      - octave
+      - liboctave-dev
+
+matrix:
+  include:
+    - os: linux
+    - os: osx
+
+script:
+  - make -C contrib/octave test
