@@ -13,7 +13,9 @@ matrix:
     - os: linux
     - os: osx
       before_install:
-        -  brew install octave
+        - rvm use 2.6 # super-super-ugly travis stuff
+        - brew update
+        - brew install octave
 
 script:
   - make -C contrib/octave clean test
