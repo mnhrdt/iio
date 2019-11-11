@@ -11,6 +11,9 @@ addons:
 matrix:
   include:
     - os: linux
+    - os: osx
+      before_install:
+        -  brew install octave
 
 script:
-  - make -C contrib/octave test
+  - make -C contrib/octave clean test

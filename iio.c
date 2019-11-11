@@ -1504,11 +1504,13 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	IIO_DEBUG("fmt  = %d\n", fmt);
 
 	// deal with complex issues
+	bool complicated = false; // complicated = complex and broken
 	if (fmt == SAMPLEFORMAT_COMPLEXINT || fmt == SAMPLEFORMAT_COMPLEXIEEEFP)
 	{
 		IIO_DEBUG("complex TIFF!\n");
 		spp *= 2;
 		bps /= 2;
+		complicated = true; // to be updated later
 	}
 	if (fmt == SAMPLEFORMAT_COMPLEXINT   ) fmt = SAMPLEFORMAT_INT;
 	if (fmt == SAMPLEFORMAT_COMPLEXIEEEFP) fmt = SAMPLEFORMAT_IEEEFP;
@@ -1546,6 +1548,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	r = TIFFGetField(tif, TIFFTAG_PLANARCONFIG, &planarity);
 	if (r != 1) planarity = PLANARCONFIG_CONTIG;
 	bool broken = planarity == PLANARCONFIG_SEPARATE;
+	complicated = complicated && broken; // complicated = complex and broken
 
 
 	// acquire memory block
@@ -1558,9 +1561,12 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	IIO_DEBUG("uss = %d\n", (int)uscanline_size);
 	int sls = TIFFScanlineSize(tif);
 	IIO_DEBUG("sls(r) = %d\n", (int)sls);
+	IIO_DEBUG("planarity = %s\n", broken?"broken":"normal");
 
 	if ((int)scanline_size != sls)
 	{
+		// use basic RGBA reader for inconsistently reported images
+		// this may happen when each channel has a different format
 		fprintf(stderr, "IIO TIFF WARN: scanline_size,sls = %d,%d\n",
 				(int)scanline_size,sls);
 		IIO_DEBUG("tiff read RGBA image interfacing:\n");
@@ -1585,7 +1591,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	//else
 	//	assert((int)scanline_size == spp*sls);
 	assert((int)scanline_size >= sls);
-	uint8_t *data = xmalloc(w * h * spp * rbps);
+	uint8_t *data = xmalloc(w * h * spp * rbps * (complicated?2:1));
 	uint8_t *buf = xmalloc(scanline_size);
 
 	// use a particular reader for tiled tiff
@@ -1619,7 +1625,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 			int L = l, Spp = spp;
 			if (broken) {
 				TIFFReadTile(tif, tbuf, tx, ty, 0, l);
-				L = 0; 
+				L = 0;
 				Spp = 1;
 			}
 			for (uint32_t j = 0; j < tilelength; j++)
@@ -1657,19 +1663,21 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 			}
 		}
 		else {
+			int f = complicated ? 2 : 1; // bizarre case, squeeze!
 			FORI(h)
 			{
-				FORJ(spp)
+				void *dest = data + i*spp*sls/f;
+				FORJ(spp/f)
 				{
 					r = TIFFReadScanline(tif, buf, i, j);
 					if (r < 0)
-						fail("tiff bad %d/%d;%d",
-								i, (int)h, j);
-					memcpy(data + i*spp*sls + j*sls,
-							buf, sls);
+						fail("tiff bad %d/%d;%d (%d)",
+								i, (int)h, j,f);
+					memcpy(dest + j*sls, buf, sls);
 				}
-				repair_broken_pixels_inplace(data + i*spp*sls,
-						w, spp, bps/8);
+				if (!complicated)
+					repair_broken_pixels_inplace(dest,
+							w, spp, bps/8);
 			}
 		}
 	}
@@ -2074,6 +2082,22 @@ static void switch_4endianness(void *tt, int n)
 		t += 4;
 	}
 }
+//static void switch_8endianness(void *tt, int n)
+//{
+//	char *t = tt;
+//	FORI(n) {
+//		char tmp[8] = {t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7]};
+//		t[0] = tmp[7];
+//		t[1] = tmp[6];
+//		t[2] = tmp[5];
+//		t[3] = tmp[4];
+//		t[4] = tmp[3];
+//		t[5] = tmp[2];
+//		t[6] = tmp[1];
+//		t[7] = tmp[0];
+//		t += 8;
+//	}
+//}
 
 // PFM reader                                                               {{{2
 static int read_beheaded_pfm(struct iio_image *x,
@@ -2662,14 +2686,21 @@ static int read_beheaded_npy(struct iio_image *x,
 	char order[10];
 	int w, h, pd, n;
 	n = sscanf(npy_header, "{'descr': '%[^']', 'fortran_order': %[^,],"
-			" 'shape': (%d, %d, %d", descr, order, &w, &h, &pd);
+			" 'shape': (%d, %d, %d", descr, order, &h, &w, &pd);
 	if (n < 5) pd = 1;
 	if (n < 4) h = 1;
 	if (n < 3) return 2; // badly formed npy header
 
+	if (h==1 && w>1 && pd>1) // squeeze
+	{
+		h = w;
+		w = pd;
+		pd = 1;
+	}
+
 	// parse type string
 	char *desc = descr; // pointer to the bare description
-	if (*descr=='<' || *descr=='>' || *descr=='=')
+	if (*descr=='<' || *descr=='>' || *descr=='=' || *descr=='|')
 		desc += 1;
 	if (false) ;
 	else if (0 == strcmp(desc, "f8")) x->type = IIO_TYPE_DOUBLE;
@@ -3327,7 +3358,7 @@ static void iio_write_image_as_npy(const char *filename, struct iio_image *x)
 	int n = 10;               // size of magic before header string
 	n += snprintf(buf+n, 1000-n, "{'descr': '%s', 'fortran_order': "
 			"False, 'shape': (", descr);
-	for (int i = 0; i < x->dimension; i++)
+	for (int i = x->dimension-1; i >= 0; i--)
 		n += snprintf(buf+n, 1000-n, "%d, ", x->sizes[i]);
 	n += snprintf(buf+n, 1000-n, "%d)}", x->pixel_dimension);
 	int m = ((n+15+1)/16)*16; // next multiple of 16 (plus 1)
@@ -3395,6 +3426,313 @@ static void iio_write_image_as_rim_cimage(const char *fname, struct iio_image *x
 }
 
 // SIX writer                                                               {{{2
+
+// auxiliary stream interface, used mainly for sixels
+struct bytestream {
+	int n, ntop;
+	uint8_t *t;
+};
+
+static void bytestream_init(struct bytestream *s)
+{
+	s->ntop = 1024;
+	s->n = 0;
+	s->t = xmalloc(s->ntop);
+}
+
+static void bs_putchar(struct bytestream *s, uint8_t x)
+{
+	if (s->n >= s->ntop)
+	{
+		s->ntop *= 2;
+		s->t = xrealloc(s->t, s->ntop);
+	}
+	s->t[s->n++] = x;
+}
+
+static void bs_puts(struct bytestream *s, char *x)
+{
+	while (*x)
+		bs_putchar(s, *x++);
+}
+
+static int bs_printf(struct bytestream *s, char *fmt, ...)
+{
+	va_list argp;
+	char buf[0x1000];
+	va_start(argp, fmt);
+	int r = vsnprintf(buf, 0x1000, fmt, argp);
+	bs_puts(s, buf);
+	va_end(argp);
+	return r;
+}
+
+static void bytestream_free(struct bytestream *s)
+{
+	xfree(s->t);
+}
+
+static int sidx(uint8_t *rgb) // sixel index identifier
+{
+	int r = 0;
+	r += (rgb[0] >> 5) << 5;
+	r += (rgb[1] >> 5) << 2;
+	r += rgb[2] >> 6;
+	return r;
+	//return 32*(rgb[0]/32) + 4*(rgb[1]/32) + rgb[2]/64;
+}
+
+static void dump_sixels_to_bytestream_rgb3(
+		struct bytestream *out,
+		uint8_t *x, int w, int h)
+{
+	bs_puts(out, "\ePq\n");
+	for (int i = 0; i < 0x100; i++)
+		bs_printf(out, "#%d;2;%d;%d;%d", i,
+				(int)(14.2857*(i/32)),
+				(int)(14.2857*((i/4)%8)),
+				(int)(33.3333*(i%4)));
+	for (int j = 0; j < h/6; j++)
+	{
+		int m[0x100] = {0}, c = 0;
+		for (int i = 0; i < 6*w; i++)
+		{
+			int k = sidx(x+3*(6*j*w+i));
+			if (!m[k]) c += 1;
+			m[k] += 1;
+		}
+		for (int k = 0; k < 0x100; k++)
+		if (m[k])
+		{
+			int b[w], r[w], R[w], n = 0;
+			c -= 1;
+			for (int i = 0; i < w; i++)
+			{
+				int s = 0;
+				for (int l = 5; l >= 0; l--)
+					s = 2*s + (k==sidx(x+3*((6*j+l)*w+i)));
+				b[i] = s + 63;
+			}
+			for (int i = 0; i < w; i++)
+				R[i] = 1;
+			r[0] = *b;
+			for (int i = 1; i < w; i++)
+				if (b[i] == r[n])
+					R[n] += 1;
+				else
+					r[++n] = b[i];
+			bs_printf(out, "#%d", k);
+			for (int i = 0; i <= n; i++)
+				if (R[n] < 3)
+					for (int k = 0; k < R[i]; k++)
+						bs_putchar(out, r[i]);
+				else
+					bs_printf(out, "!%d%c", R[i], r[i]);
+			bs_puts(out, c ? "$\n" : "-\n");
+		}
+	}
+	bs_puts(out, "\e\\");
+}
+
+static void dump_sixels_to_bytestream_gray2(
+		struct bytestream *out,
+		uint8_t *x, int w, int h)
+{
+	int Q = (1<<2); // quantization over [0..255]
+	bs_printf(out, "\ePq\n");
+	for (int i = 0; i < 0x100/Q; i++)
+		bs_printf(out, "#%d;2;%d;%d;%d",
+			i, (int)(Q*.39*i), (int)(Q*.39*i), (int)(Q*.39*i));
+	for (int j = 0; j < h/6; j++) {
+		int m[0x100] = {0}, c = 0;
+		for (int i = 0; i < 6*w; i++) {
+			int k = x[6*j*w+i]/Q;
+			if (!m[k]) c += 1;
+			m[k] += 1;
+		}
+		for (int k = 0; k < 0x100/Q; k++)
+		if (m[k]) {
+			int b[w], r[w], R[w], idx = 0;
+			c -= 1;
+			for (int i = 0; i < w; i++) {
+				b[i] = 0;
+				for (int l = 5; l >= 0; l--)
+					b[i] = 2*b[i] + (k == x[(6*j+l)*w+i]/Q);
+				b[i] += 63;
+			}
+			for (int i = 0; i < w; i++) R[i] = 1;
+			r[0] = *b;
+			for (int i = 1; i < w; i++)
+				if (b[i] == r[idx]) R[idx] += 1;
+				else r[++idx] = b[i];
+			bs_printf(out, "#%d", k);
+			for (int i = 0; i <= idx; i++)
+				if (R[idx] < 3)
+					for (int k = 0; k < R[i]; k++)
+						bs_printf(out, "%c", r[i]);
+				else
+					bs_printf(out, "!%d%c", R[i], r[i]);
+			bs_printf(out, c ? "$\n" : "-\n");
+		}
+	}
+	bs_printf(out, "\e\\");
+}
+
+//static void dump_sixels_to_stdout_rgb3(uint8_t *x, int w, int h)
+//{
+//	struct bytestream s[1];
+//	bytestream_init(s);
+//	dump_sixels_to_bytestream_rgb3(s, x, w, h);
+//	for (int i = 0; i < s->n; i++)
+//		putchar(s->t[i]);
+//	bytestream_free(s);
+//	//printf("\ePq\n");
+//	//for (int i = 0; i < 0x100; i++)
+//	//	printf("#%d;2;%d;%d;%d", i,(int)(14.2857*(i/32)),
+//	//			(int)(14.2857*((i/4)%8)), (int)(33.3333*(i%4)));
+//	//for (int j = 0; j < h/6; j++)
+//	//{
+//	//	int m[0x100] = {0}, c = 0;
+//	//	for (int i = 0; i < 6*w; i++)
+//	//	{
+//	//		int k = sidx(x+3*(6*j*w+i));
+//	//		if (!m[k]) c += 1;
+//	//		m[k] += 1;
+//	//	}
+//	//	for (int k = 0; k < 0x100; k++)
+//	//	if (m[k])
+//	//	{
+//	//		int b[w], r[w], R[w], n = 0;
+//	//		c -= 1;
+//	//		for (int i = 0; i < w; i++)
+//	//		{
+//	//			int s = 0;
+//	//			for (int l = 5; l >= 0; l--)
+//	//				s = 2*s + (k==sidx(x+3*((6*j+l)*w+i)));
+//	//			b[i] = s + 63;
+//	//		}
+//	//		for (int i = 0; i < w; i++)
+//	//			R[i] = 1;
+//	//		r[0] = *b;
+//	//		for (int i = 1; i < w; i++)
+//	//			if (b[i] == r[n])
+//	//				R[n] += 1;
+//	//			else
+//	//				r[++n] = b[i];
+//	//		printf("#%d", k);
+//	//		for (int i = 0; i <= n; i++)
+//	//			if (R[n] < 3)
+//	//				for (int k = 0; k < R[i]; k++)
+//	//					printf("%c", r[i]);
+//	//			else
+//	//				printf("!%d%c", R[i], r[i]);
+//	//		printf(c ? "$\n" : "-\n");
+//	//	}
+//	//}
+//	//printf("\e\\");
+//}
+
+//static void dump_sixels_to_stdout_gray2(uint8_t *x, int w, int h)
+//{
+//	int Q = (1<<2); // quantization over [0..255]
+//	printf("\ePq\n");
+//	for (int i = 0; i < 0x100/Q; i++)
+//		printf("#%d;2;%d;%d;%d",
+//			i, (int)(Q*.39*i), (int)(Q*.39*i), (int)(Q*.39*i));
+//	for (int j = 0; j < h/6; j++) {
+//		int m[0x100] = {0}, c = 0;
+//		for (int i = 0; i < 6*w; i++) {
+//			int k = x[6*j*w+i]/Q;
+//			if (!m[k]) c += 1;
+//			m[k] += 1;
+//		}
+//		for (int k = 0; k < 0x100/Q; k++)
+//		if (m[k]) {
+//			int b[w], r[w], R[w], idx = 0;
+//			c -= 1;
+//			for (int i = 0; i < w; i++) {
+//				b[i] = 0;
+//				for (int l = 5; l >= 0; l--)
+//					b[i] = 2*b[i] + (k == x[(6*j+l)*w+i]/Q);
+//				b[i] += 63;
+//			}
+//			for (int i = 0; i < w; i++) R[i] = 1;
+//			r[0] = *b;
+//			for (int i = 1; i < w; i++)
+//				if (b[i] == r[idx]) R[idx] += 1;
+//				else r[++idx] = b[i];
+//			printf("#%d", k);
+//			for (int i = 0; i <= idx; i++)
+//				if (R[idx] < 3)
+//					for (int k = 0; k < R[i]; k++)
+//						printf("%c", r[i]);
+//				else
+//					printf("!%d%c", R[i], r[i]);
+//			printf(c ? "$\n" : "-\n");
+//		}
+//	}
+//	printf("\e\\");
+//}
+
+static void penetrate_screen(struct bytestream *z, struct bytestream *s)
+{
+	//bs_puts(z, "PENETRATE SCREEN\n");
+	bs_puts(z, "\x1bP");
+	for (int i = 0; i < s->n; i++)
+	{
+		int c = s->t[i];
+		     if (c == '\x90') bs_puts(z, "\x1bP");
+		else if (c == '\x9c') bs_puts(z, "\x1b\x1b\\\x1bP\\");
+		else if (c == '\x1b' && i+1 < s->n && s->t[i] == '\\')
+		{
+			bs_puts(z, "\x1b\x1b\\\x1bP\\");
+			i += 1;
+		}
+		else bs_putchar(z, c);
+	}
+	bs_puts(z, "\x1b\\");
+}
+
+static void dump_sixels_to_stdout_uint8(uint8_t *x, int w, int h, int pd)
+{
+
+	struct bytestream s[1];
+	bytestream_init(s);
+	if (pd == 3) dump_sixels_to_bytestream_rgb3(s, x, w, h);
+	if (pd == 1) dump_sixels_to_bytestream_gray2(s, x, w, h);
+	struct bytestream *S = s;
+	bool screen = false;//strstr(getenv("TERM"), "screen");
+	struct bytestream z[1];
+	if (screen) bytestream_init(z);
+	if (screen) penetrate_screen(S = z, s);
+	for (int i = 0; i < S->n; i++)
+		putchar(S->t[i]);
+	bytestream_free(s);
+	if (screen) bytestream_free(z);
+}
+
+static void dump_sixels_to_stdout(struct iio_image *x)
+{
+	//if (x->type != IIO_TYPE_UINT8)
+	{
+		void *old_data = x->data;
+		int ss = iio_image_sample_size(x);
+		int nsamp = iio_image_number_of_samples(x);
+		x->data = xmalloc(nsamp*ss);
+		memcpy(x->data, old_data, nsamp*ss);
+		iio_convert_samples(x, IIO_TYPE_UINT8);
+		dump_sixels_to_stdout_uint8(x->data, x->sizes[0], x->sizes[1],
+				x->pixel_dimension);
+		//if (x->pixel_dimension==3)
+		//dump_sixels_to_stdout_rgb3(x->data, x->sizes[0], x->sizes[1]);
+		//else if (x->pixel_dimension==1)
+		//dump_sixels_to_stdout_gray2(x->data,x->sizes[0],x->sizes[1]);
+		xfree(x->data);
+		x->data = old_data;
+	}
+}
+
+
 // guess format using magic                                                 {{{1
 
 
@@ -4240,120 +4578,6 @@ static bool string_suffix(const char *s, const char *suf)
 	return 0 == strcmp(suf, s + (len_s - len_suf));
 }
 
-static int sidx(uint8_t *rgb)
-{
-	return 32*(rgb[0]/32) + 4*(rgb[1]/32) + rgb[2]/64;
-}
-
-static void dump_sixels_to_stdout_rgb3(uint8_t *x, int w, int h)
-{
-	printf("\ePq\n");
-	for (int i = 0; i < 0x100; i++)
-		printf("#%d;2;%d;%d;%d", i,(int)(14.2857*(i/32)),
-				(int)(14.2857*((i/4)%8)), (int)(33.3333*(i%4)));
-	for (int j = 0; j < h/6; j++)
-	{
-		int m[0x100] = {0}, c = 0;
-		for (int i = 0; i < 6*w; i++)
-		{
-			int k = sidx(x+3*(6*j*w+i));
-			if (!m[k]) c += 1;
-			m[k] += 1;
-		}
-		for (int k = 0; k < 0x100; k++)
-		if (m[k])
-		{
-			int b[w], r[w], R[w], n = 0;
-			c -= 1;
-			for (int i = 0; i < w; i++)
-			{
-				int s = 0;
-				for (int l = 5; l >= 0; l--)
-					s = 2*s + (k==sidx(x+3*((6*j+l)*w+i)));
-				b[i] = s + 63;
-			}
-			for (int i = 0; i < w; i++)
-				R[i] = 1;
-			r[0] = *b;
-			for (int i = 1; i < w; i++)
-				if (b[i] == r[n])
-					R[n] += 1;
-				else
-					r[++n] = b[i];
-			printf("#%d", k);
-			for (int i = 0; i <= n; i++)
-				if (R[n] < 3)
-					for (int k = 0; k < R[i]; k++)
-						printf("%c", r[i]);
-				else
-					printf("!%d%c", R[i], r[i]);
-			printf(c ? "$\n" : "-\n");
-		}
-	}
-	printf("\e\\");
-}
-
-static void dump_sixels_to_stdout_gray2(uint8_t *x, int w, int h)
-{
-	int Q = (1<<2); // quantization over [0..255]
-	printf("\ePq\n");
-	for (int i = 0; i < 0x100/Q; i++)
-		printf("#%d;2;%d;%d;%d",
-			i, (int)(Q*.39*i), (int)(Q*.39*i), (int)(Q*.39*i));
-	for (int j = 0; j < h/6; j++) {
-		int m[0x100] = {0}, c = 0;
-		for (int i = 0; i < 6*w; i++) {
-			int k = x[6*j*w+i]/Q;
-			if (!m[k]) c += 1;
-			m[k] += 1;
-		}
-		for (int k = 0; k < 0x100/Q; k++)
-		if (m[k]) {
-			int b[w], r[w], R[w], idx = 0;
-			c -= 1;
-			for (int i = 0; i < w; i++) {
-				b[i] = 0;
-				for (int l = 5; l >= 0; l--)
-					b[i] = 2*b[i] + (k == x[(6*j+l)*w+i]/Q);
-				b[i] += 63;
-			}
-			for (int i = 0; i < w; i++) R[i] = 1;
-			r[0] = *b;
-			for (int i = 1; i < w; i++)
-				if (b[i] == r[idx]) R[idx] += 1;
-				else r[++idx] = b[i];
-			printf("#%d", k);
-			for (int i = 0; i <= idx; i++)
-				if (R[idx] < 3)
-					for (int k = 0; k < R[i]; k++)
-						printf("%c", r[i]);
-				else
-					printf("!%d%c", R[i], r[i]);
-			printf(c ? "$\n" : "-\n");
-		}
-	}
-	printf("\e\\");
-}
-
-static void dump_sixels_to_stdout(struct iio_image *x)
-{
-	//if (x->type != IIO_TYPE_UINT8)
-	{
-		void *old_data = x->data;
-		int ss = iio_image_sample_size(x);
-		int nsamp = iio_image_number_of_samples(x);
-		x->data = xmalloc(nsamp*ss);
-		memcpy(x->data, old_data, nsamp*ss);
-		iio_convert_samples(x, IIO_TYPE_UINT8);
-		if (x->pixel_dimension==3)
-		dump_sixels_to_stdout_rgb3(x->data, x->sizes[0], x->sizes[1]);
-		else if (x->pixel_dimension==1)
-		dump_sixels_to_stdout_gray2(x->data, x->sizes[0], x->sizes[1]);
-		xfree(x->data);
-		x->data = old_data;
-	}
-}
-
 // Note:
 // This function was written without being designed.  See file "saving.txt" for
 // an attempt at designing it.
@@ -4364,13 +4588,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 	if (x->dimension != 2) fail("de moment només escrivim 2D");
 	if (!strcmp(filename,"-") && isatty(fileno(stdout)))
 	{
-		//fprintf(stdout, "image %s %dx%d,%d\n",
-		//		iio_strtyp(x->type),
-		//	       	x->sizes[0],
-		//	       	x->sizes[1],
-		//		x->pixel_dimension
-		//		);
-		if (x->sizes[0] < 800 && x->sizes[1] < 800 &&
+		if (x->sizes[0] <= 855 && x->sizes[1] <= 800 &&
 			(x->pixel_dimension==3 || x->pixel_dimension==1))
 			dump_sixels_to_stdout(x);
 		else
