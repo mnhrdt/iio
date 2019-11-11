@@ -12,9 +12,8 @@ matrix:
   include:
     - os: linux
     - os: osx
+      osx_image: xcode11.2
       before_install:
-        - rvm use 2.6 # super-super-ugly travis stuff
-        - brew update
         - brew install octave
 
 script:
