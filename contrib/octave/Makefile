@@ -12,4 +12,4 @@ default : $(BIN)
 
 clean   :           ; $(RM) *.o *.mex neg_lena*.png lena_imwrite.png
 
-test    : $(BIN)    ; octave example_iio.m
+test    : $(BIN)    ; octave --no-gui example_iio.m
