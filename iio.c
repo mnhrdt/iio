@@ -2872,7 +2872,10 @@ static int read_beheaded_vic(struct iio_image *x,
 	int datac = 0;
 	char rec[f_recsize];
 	for (int i = 0; i < f_nlb; i++) // discard the first "nlb" records
-		fread(rec, f_recsize, 1, fin);
+	{
+		int r = fread(rec, f_recsize, 1, fin);
+		if (r != 1) fail("could not read whole VICAR prefx");
+	}
 	for (int i = 0; i < f_nl * f_nb; i++) // read the good records
 	{
 		int r = fread(rec, f_recsize, 1, fin);
