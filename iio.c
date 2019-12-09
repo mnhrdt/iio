@@ -2805,6 +2805,7 @@ static int read_beheaded_vic(struct iio_image *x,
 	char f_format[99] = {0}; // sample type (byte,half,full,real,doubl,comp)
 	char f_type[99] = {0};   // file type (always "image")
 	char f_org[99] = {0};    // brokennes order (only "bsq"=broken is known)
+	char f_ifmt[99] = {0};   // endianness (high or low)
 	int f_nl = -1;      // number of lines
 	int f_ns = -1;      // number of samples (per line)
 	int f_nb = -1;      // numbef of bands (pixel dimension)
@@ -2829,6 +2830,7 @@ static int read_beheaded_vic(struct iio_image *x,
 		if (0 == strcmp(k, "FORMAT" )) strncpy(f_format, v, 99);
 		if (0 == strcmp(k, "TYPE"   )) strncpy(f_type, v, 99);
 		if (0 == strcmp(k, "ORG"    )) strncpy(f_org, v, 99);
+		if (0 == strcmp(k, "INTFMT" )) strncpy(f_ifmt, v, 99);
 		if (0 == strcmp(k, "NL"     )) f_nl  = atoi(v);
 		if (0 == strcmp(k, "NS"     )) f_ns  = atoi(v);
 		if (0 == strcmp(k, "NB"     )) f_nb  = atoi(v);
@@ -2883,6 +2885,12 @@ static int read_beheaded_vic(struct iio_image *x,
 		memcpy(x->data + datac, rec + f_nbb, f_ns*bps);
 		datac += f_ns*bps;
 	}
+
+	// fix endianness
+	if (bps==2 && 0==strcmp(f_ifmt,"'HIGH'"))
+		switch_2endianness(x->data, iio_image_number_of_samples(x));
+	if (bps==4 && 0==strcmp(f_ifmt,"'HIGH'"))
+		switch_4endianness(x->data, iio_image_number_of_samples(x));
 
 	return 0;
 }
