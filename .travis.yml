@@ -14,7 +14,7 @@ matrix:
     - os: osx
       osx_image: xcode11.2
       before_install:
-        - brew install octave
+        - HOMEBREW_NO_AUTO_UPDATE=1 brew install octave
 
 script:
   - make -C contrib/octave clean test
