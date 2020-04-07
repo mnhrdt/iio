@@ -1813,7 +1813,7 @@ static int read_beheaded_tiff(struct iio_image *x,
 
 // HDF5 reader                                                              {{{2
 #ifdef I_CAN_HAS_LIBHDF5
-#include <hdf5/serial/hdf5.h>
+#include <hdf5.h>
 
 // DISCLAIMER:
 //
@@ -1821,7 +1821,7 @@ static int read_beheaded_tiff(struct iio_image *x,
 // proliferation of HDF5 files.  If I am adding support for them, it is because
 // somebody has to extract the damn numbers from these stupid files.  I firmly
 // believe that the perpetrators of the HDF5 file format and associated
-// libraries should be shot.  In front of their families.
+// libraries should be tarred and feathered.
 //
 
 static int read_whole_hdf5(struct iio_image *x, const char *filename_raw)
@@ -1890,12 +1890,14 @@ static int read_whole_hdf5(struct iio_image *x, const char *filename_raw)
 	// extract type and class
 	t = H5Dget_type(d);
 	c = H5Tget_class(t);
+	H5T_sign_t sgn = H5Tget_sign(t); // fml
 	IIO_DEBUG("h5 t = %d\n", (int)t);
 	IIO_DEBUG("h5 c = %d\n", (int)c);
+	IIO_DEBUG("h5 sgn = %d\n", (int)sgn);
 
 	// bytes per sample
-	size_t bytes_per_sample = H5Tget_size(t);
-	IIO_DEBUG("h5 Bps = %zu\n", bytes_per_sample);
+	size_t Bps = H5Tget_size(t);
+	IIO_DEBUG("h5 Bps = %zu\n", Bps);
 
 	// extract dataspace
 	s = H5Dget_space(d);
@@ -1918,7 +1920,7 @@ static int read_whole_hdf5(struct iio_image *x, const char *filename_raw)
 	// extract hyperslab from within dataset
 	//e = H5Sselect_hyperslab();
 
-	void *buf = xmalloc(n * bytes_per_sample);
+	void *buf = xmalloc(n * Bps);
 	e = H5Dread(d, t, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf);
 	IIO_DEBUG("h5 e(read) = %d\n", (int)e);
 
@@ -1932,15 +1934,18 @@ static int read_whole_hdf5(struct iio_image *x, const char *filename_raw)
 
 	// identify corresponding IIO_TYPE
 	int typ = -1;
-	if (c==H5T_FLOAT   && bytes_per_sample==4) typ = IIO_TYPE_FLOAT;
-	if (c==H5T_FLOAT   && bytes_per_sample==8) typ = IIO_TYPE_DOUBLE;
-	if (c==H5T_INTEGER && bytes_per_sample==1) typ = IIO_TYPE_UINT8;
-	if (c==H5T_INTEGER && bytes_per_sample==2) typ = IIO_TYPE_UINT16;
-	if (c==H5T_INTEGER && bytes_per_sample==4) typ = IIO_TYPE_UINT32;
+	if (c==H5T_FLOAT   && Bps==4) typ = IIO_TYPE_FLOAT;
+	if (c==H5T_FLOAT   && Bps==8) typ = IIO_TYPE_DOUBLE;
+	if (c==H5T_INTEGER && Bps==1 && sgn==0) typ = IIO_TYPE_UINT8;
+	if (c==H5T_INTEGER && Bps==2 && sgn==0) typ = IIO_TYPE_UINT16;
+	if (c==H5T_INTEGER && Bps==4 && sgn==0) typ = IIO_TYPE_UINT32;
+	if (c==H5T_INTEGER && Bps==1 && sgn==1) typ = IIO_TYPE_INT8;
+	if (c==H5T_INTEGER && Bps==2 && sgn==1) typ = IIO_TYPE_INT16;
+	if (c==H5T_INTEGER && Bps==4 && sgn==1) typ = IIO_TYPE_INT32;
 
 	if (typ < 0 || ndim > 4)
 		fail("unrecognized HDF5 c=%d Bps=%d ndim=%d\n",
-				(int)c, (int)bytes_per_sample, ndim);
+				(int)c, (int)Bps, ndim);
 
 	// identify IIO sizes (with some squeezing if necessary)
 	// philosophy: data is not reordered here
@@ -2986,6 +2991,12 @@ static int read_beheaded_npy(struct iio_image *x,
 		pd = 1;
 	}
 
+	IIO_DEBUG("npy descr = %s\n", descr);
+	IIO_DEBUG("npy order = %s\n", descr);
+	IIO_DEBUG("npy w = %d\n", w);
+	IIO_DEBUG("npy h = %d\n", h);
+	IIO_DEBUG("npy pd = %d\n", pd);
+
 	// parse type string
 	char *desc = descr; // pointer to the bare description
 	if (*descr=='<' || *descr=='>' || *descr=='=' || *descr=='|')
@@ -3013,8 +3024,10 @@ static int read_beheaded_npy(struct iio_image *x,
 	x->sizes[1] = h;
 	x->pixel_dimension = pd;
 	x->contiguous_data = false;
-	int bps = iio_type_size(x->type);
-	x->data = xmalloc(w * h * pd * bps);
+	size_t bps = iio_type_size(x->type);
+	IIO_DEBUG("bps = %d\n", (int)bps);
+	x->data = xmalloc(((bps * w) * h) * pd);
+	IIO_DEBUG("data = %p\n", (void*)x->data);
 	uint64_t r = fread(x->data, bps, w*h*pd, fin);
 	if (r != (uint64_t)w*h*pd)
 		fprintf(stderr,"IIO WARNING: npy file smaller than expected\n");
@@ -4770,6 +4783,7 @@ static int read_image(struct iio_image *x, const char *fname)
 	// check for URL
 	if (fname == strstr(fname, "http://")
 			|| fname==strstr(fname, "https://") ) {
+		IIO_DEBUG("read image(wget) \"%s\"\n", fname);
 		// TODO: for security, sanitize the fname
 		int cmd_len = 2*FILENAME_MAX + 20;
 		char tfn[cmd_len], cmd[cmd_len];
@@ -4781,6 +4795,7 @@ static int read_image(struct iio_image *x, const char *fname)
 		r = read_image_f(x, f);
 		xfclose(f);
 		delete_temporary_file(tfn);
+		return 0;
 	} else
 #endif//I_CAN_HAS_WGET
 
@@ -5312,10 +5327,6 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		iio_write_image_as_pfm(filename, x);
 		return;
 	}
-	if (string_suffix(filename, ".npy")) {
-		iio_write_image_as_npy(filename, x);
-		return;
-	}
 	if (string_suffix(filename, ".csv") &&
 			(typ==IIO_TYPE_FLOAT || typ==IIO_TYPE_DOUBLE)
 				&& x->pixel_dimension == 1) {
@@ -5350,6 +5361,10 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		iio_write_image_default(filename, x); // recursive call
 		xfree(x->data);
 		x->data = old_data;
+		return;
+	}
+	if (string_suffix(filename, ".npy")) {
+		iio_write_image_as_npy(filename, x);
 		return;
 	}
 #ifdef I_CAN_HAS_LIBTIFF
