@@ -1,8 +1,0 @@
-iio.py
-setup.py
-iio/iio.c
-iio.egg-info/PKG-INFO
-iio.egg-info/SOURCES.txt
-iio.egg-info/dependency_links.txt
-iio.egg-info/top_level.txt
-test/test.py

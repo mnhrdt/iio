@@ -1,0 +1,9 @@
+python binding to iio installable via "pip install iio"
+
+To update the pypi hub, you need an account on pypi, and then run the following
+commands:
+
+	cd pypi
+	python3 setup.py sdist bdist_wheel
+	python3 -m twine upload dist/iio-*.tar.gz
+	rm -rf build dist iio.egg-info

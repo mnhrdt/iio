@@ -1,9 +1,21 @@
 from setuptools import setup, Extension
+from sysconfig import get_config_var
+from subprocess import check_output
+
+h5_f = str(check_output(["pkg-config", "--cflags", "hdf5"]), "utf8").split()
+h5_l = str(check_output(["pkg-config", "--libs"  , "hdf5"]), "utf8").split()
+
+extra_compile_args = get_config_var('CFLAGS').split()
+extra_compile_args += ["-DI_CAN_HAS_LIBHDF5"]
+extra_compile_args += h5_f
+extra_link_args = h5_l
 
 extensions = [Extension("libiio",
                         ["iio/iio.c"],
                         include_dirs=['iio'],
-                        libraries=['png', 'jpeg', 'tiff'],
+                        libraries=['png', 'jpeg', 'tiff', "hdf5"],
+                        extra_compile_args=extra_compile_args,
+                        extra_link_args=extra_link_args,
                         depends=["iio/iio.h"])]
 
 
@@ -33,7 +45,7 @@ class _CommandInstall(_install_lib):
                 for file in outfiles]
 
 setup(name="iio",
-      version='0.0.3',
+      version='0.0.4a2',
       author="Jérémy Anger, Gabriele Facciolo",
       author_email="angerj.dev@gmail.com",
       description="Python wrapper to iio",

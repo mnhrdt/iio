@@ -1,2 +1,2 @@
-iio-X.Y.Z : the python binding available on pypi.org/project/iio
+pypi : the python binding available on pypi.org/project/iio
 piio_packaged : the python binding used in pvflip
