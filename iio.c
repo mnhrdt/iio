@@ -2019,7 +2019,7 @@ hid_t my_hd5open(hid_t f, char *suffix)
 	H5O_iterate_t u = find_suffix;
 	struct twostrings p = {suffix, dset};
 	p.a = suffix;
-	herr_t e = H5Ovisit(f, H5_INDEX_NAME, H5_ITER_NATIVE, u, &p);
+	herr_t e = H5Ovisit1(f, H5_INDEX_NAME, H5_ITER_NATIVE, u, &p);
 	if (*dset) IIO_DEBUG("HDF5_DSET = /%s\n", dset);
 	return *dset ? H5Dopen2(f, dset, H5P_DEFAULT) : -1;
 }
