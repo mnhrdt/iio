@@ -1,19 +1,29 @@
+
+# NOTE: by now, "hdf5" is a hard requirement.  In the future I may propose pip
+# options that enable or disable a few library combinations.
+
 from setuptools import setup, Extension
 from sysconfig import get_config_var
 from subprocess import check_output
-
-h5_f = str(check_output(["pkg-config", "--cflags", "hdf5"]), "utf8").split()
-h5_l = str(check_output(["pkg-config", "--libs"  , "hdf5"]), "utf8").split()
+import sys
 
 extra_compile_args = get_config_var('CFLAGS').split()
 extra_compile_args += ["-DI_CAN_HAS_LIBHDF5"]
-extra_compile_args += h5_f
-extra_link_args = h5_l
+
+if sys.platform == "darwin":
+    extra_link_args = ["-L /usr/local/lib"]
+else:
+    h5_f = str(check_output(["pkg-config", "--cflags", "hdf5"]), "utf8").split()
+    h5_l = str(check_output(["pkg-config", "--libs"  , "hdf5"]), "utf8").split()
+    extra_compile_args += h5_f
+    extra_link_args = h5_l
+
 
 extensions = [Extension("libiio",
                         ["iio/iio.c"],
-                        include_dirs=['iio'],
-                        libraries=['png', 'jpeg', 'tiff', "hdf5"],
+                        include_dirs=['iio', "/usr/local/include"],
+                        libraries=['png', 'jpeg', 'tiff',  "hdf5"],
+                        library_dirs=["/usr/local/lib"],
                         extra_compile_args=extra_compile_args,
                         extra_link_args=extra_link_args,
                         depends=["iio/iio.h"])]

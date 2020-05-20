@@ -1,3 +1,9 @@
+
+# TODO : 1. rewrite using cffi and keeping the same funcionality
+# TODO : 2. create numpy array of the same sample type as the given file
+#           (for that, use "iio_read_image_numbers_as_they_are_stored")
+
+
 import os.path
 import ctypes
 from ctypes import *
