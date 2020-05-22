@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: iio
-Version: 0.0.4a2
+Version: 0.0.4a4
 Summary: Python wrapper to iio
 Home-page: https://github.com/mnhrdt/iio
 Author: Jérémy Anger, Gabriele Facciolo

@@ -55,7 +55,7 @@ class _CommandInstall(_install_lib):
                 for file in outfiles]
 
 setup(name="iio",
-      version='0.0.4a2',
+      version='0.0.4a4',
       author="Jérémy Anger, Gabriele Facciolo",
       author_email="angerj.dev@gmail.com",
       description="Python wrapper to iio",
