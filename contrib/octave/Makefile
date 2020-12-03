@@ -2,7 +2,7 @@ MEX     = mex                # for matlab
 MEX     = mkoctfile --mex    # for octave
 
 LDLIBS  = -lpng -ltiff -ljpeg
-CFLAGS  = -fPIC
+CFLAGS  = -fPIC -march=native -O3
 
 BIN     = iio_read.mex iio_write.mex
 

@@ -39,6 +39,7 @@
 #define I_CAN_HAS_WHATEVER
 //#define I_CAN_KEEP_TMP_FILES
 
+#define I_CAN_HAS_INT64
 
 //
 // portability macros to choose OS features
@@ -301,7 +302,7 @@ static void fail(const char *fmt, ...)
 	longjmp(global_jump_buffer, 1);
 	//iio_single_jmpstuff(true, false);
 #else//IIO_ABORT_ON_ERROR
-	exit(xgetenv("IIO_SEGFAULT_ON_ERROR")?*(int*)0:-1);
+	exit(xgetenv("IIO_SEGFAULT_ON_ERROR")?*(volatile int*)0:-1);
 //#  ifdef NDEBUG
 //	exit(-1);
 //#  else//NDEBUG
