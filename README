@@ -240,20 +240,24 @@ That's enough black magic for now, but rest assured that there's more.
 6. COMPILE TIME CONFIGURATION
 -----------------------------
 
-Edit the definitions at the beginning of file iio.c to fine-tune your
-requirements.
+The visible interface to iio is defined on file "iio.h" and it does not change.
+However, the set of recognized image formats can be chosen at compile time,
+either by manually editing the file "iio.c" or by setting preprocessor
+variables.
 
-These flags can also be set as compiler options,
-for example, -DIIO_DISABLE_IMGLIBS
+The simplest setting is to disable all library requirements so that iio only
+deals with simple uncompressed formats like pgm and npy.  For that, uncomment
+the line that defines IIO_DISABLE_IMGLIBS at the start of iio.c.  Equivalently,
+you can pass this definition as a preprocessor option: -DIIO_DISABLE_IMGLIBS
 
-
-//#define IIO_ABORT_ON_ERROR
-//
-// Whether to ABORT the program on error or return NULL.
 
 //#define IIO_SHOW_DEBUG_MESSAGES
 //
 // Wether you want to be extremely verbose (useful for debugging only)
+
+//#define IIO_ABORT_ON_ERROR
+//
+// Whether to ABORT the program on error instead of returning NULL.
 
 //#define IIO_DISABLE_IMGLIBS
 //

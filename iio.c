@@ -28,6 +28,8 @@
 
 #define IIO_SHOW_DEBUG_MESSAGES
 
+//#define IIO_DISABLE_IMGLIBS
+
 //#define IIO_ABORT_ON_ERROR
 
 #define I_CAN_HAS_LIBPNG
@@ -242,7 +244,6 @@ jmp_buf global_jump_buffer;
 
 //#include <errno.h> // only for errno
 #include <ctype.h> // for isspace
-#include <math.h> // for floorf
 #include <stdlib.h>
 
 #ifdef I_CAN_LINUX
@@ -788,10 +789,10 @@ static void inplace_trim(struct iio_image *x,
 	char *new_data = xmalloc(nw * nh * ps);
 	if (ss == sizeof(float))
 		for (int i = 0; i < nw*nh*pd; i++)
-			((float*)new_data)[i] = NAN;
+			((float*)new_data)[i] = 0.0f/0.0f;
 	else if (ss == sizeof(double))
 		for (int i = 0; i < nw*nh*pd; i++)
-			((double*)new_data)[i] = NAN;
+			((double*)new_data)[i] = 0.0f/0.0f;
 	else
 		for (int i = 0; i < nw*nh*ps; i++)
 			((char*)new_data)[i] = 0;
@@ -5248,7 +5249,7 @@ uint8_t *iio_read_image_uint8(const char *fname, int *w, int *h)
 
 static bool this_float_is_actually_a_byte(float x)
 {
-	return (x == floor(x)) && (x >= 0) && (x < 256);
+	return (x == (int)(x)) && (x >= 0) && (x < 256);
 }
 
 //static bool this_float_is_actually_a_short(float x)
