@@ -1,0 +1,4 @@
+LDLIBS = -ljpeg -lpng -ltiff -lhdf5_serial
+CPPFLAGS = -DI_CAN_HAS_LIBHDF5
+
+include rules.mk

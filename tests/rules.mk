@@ -1,5 +1,3 @@
-BIN    = floatrw
-OBJ    = floatrw.o iio.o
-$(BIN) : $(OBJ) ; $(CC) $(LDFLAGS) $? $(LDLIBS) -o $@
-clean  :        ; rm -f $(BIN) $(OBJ) out.npy
-test   : $(BIN) ; ./floatrw in.npy out.npy && diff in.npy out.npy
+floatrw : floatrw.o iio.o ; $(CC) $(LDFLAGS) $? $(LDLIBS) -o $@
+clean   :                 ; rm -f floatrw *.o out.npy
+test    : floatrw         ; ./floatrw in.npy out.npy && diff in.npy out.npy
