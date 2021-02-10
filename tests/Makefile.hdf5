@@ -1,4 +1,4 @@
-LDLIBS = -ljpeg -lpng -ltiff -lhdf5_serial
-CPPFLAGS = -DI_CAN_HAS_LIBHDF5
+LDLIBS = -ljpeg -lpng -ltiff `pkg-config hdf5 --libs 2>/dev/null || echo -lhdf5`
+CPPFLAGS = -DI_CAN_HAS_LIBHDF5 `pkg-config hdf5 --cflags 2>/dev/null`
 
 include rules.mk

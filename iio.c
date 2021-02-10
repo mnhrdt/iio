@@ -1815,6 +1815,7 @@ static int read_beheaded_tiff(struct iio_image *x,
 
 // HDF5 reader                                                              {{{2
 #ifdef I_CAN_HAS_LIBHDF5
+#define H5_USE_110_API
 #include <hdf5.h>
 
 // DISCLAIMER:
