@@ -57,10 +57,17 @@
 //
 
 #ifdef IIO_SHOW_DEBUG_MESSAGES
-#  define IIO_DEBUG(...) do {\
+#  ifdef __STRICT_ANSI__
+#    define IIO_DEBUG(...) do {\
+	if (xgetenv("IIO_DEBUG")){\
+	fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__func__);\
+	fprintf(stderr,__VA_ARGS__);}} while(0)
+#  else//__STRICT_ANSI__
+#    define IIO_DEBUG(...) do {\
 	if (xgetenv("IIO_DEBUG")){\
 	fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__PRETTY_FUNCTION__);\
 	fprintf(stderr,__VA_ARGS__);}} while(0)
+#  endif//__STRICT_ANSI__
 #else//IIO_SHOW_DEBUG_MESSAGES
 #  define IIO_DEBUG(...) do { do_nop(__VA_ARGS__); } while(0) /* nothing */
 #endif//IIO_SHOW_DEBUG_MESSAGES
@@ -1894,6 +1901,7 @@ static int read_whole_hdf5(struct iio_image *x, const char *filename_raw)
 	t = H5Dget_type(d);
 	c = H5Tget_class(t);
 	H5T_sign_t sgn = H5Tget_sign(t); // fml
+	H5Tget_sign(t);
 	IIO_DEBUG("h5 t = %d\n", (int)t);
 	IIO_DEBUG("h5 c = %d\n", (int)c);
 	IIO_DEBUG("h5 sgn = %d\n", (int)sgn);
@@ -2647,6 +2655,7 @@ static int read_beheaded_asc(struct iio_image *x,
 	x->type = IIO_TYPE_FLOAT;
 	int nsamples = iio_image_number_of_samples(x);
 	float *xdata = xmalloc(nsamples * sizeof*xdata);
+	IIO_DEBUG("asc %d,%d,%d,%d\n", n[0], n[1], n[2], n[3]);
 	read_qnm_numbers(xdata, f, nsamples, 0, true);
 	x->data = xmalloc(nsamples * sizeof*xdata);
 	recover_broken_pixels_float(x->data, xdata, n[0]*n[1]*n[2], n[3]);
@@ -2904,7 +2913,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 	int pos[4] = {0,0,0,0}, pos_cx = 0, has_fname = 0;
 
 	// obtain the path where the vrt file is located
-	strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n);
+	strncpy(dirvrt, global_variable_containing_the_name_of_the_last_opened_file, n-1);
 	char* dirvrt2 = dirname(dirvrt);
 
 	while (1) {
@@ -3086,10 +3095,10 @@ static int read_beheaded_vic(struct iio_image *x,
 
 		// extract VICAR fields
 		if (0 == strcmp(k, "RECSIZE")) f_recsize = atoi(v);
-		if (0 == strcmp(k, "FORMAT" )) strncpy(f_format, v, 99);
-		if (0 == strcmp(k, "TYPE"   )) strncpy(f_type, v, 99);
-		if (0 == strcmp(k, "ORG"    )) strncpy(f_org, v, 99);
-		if (0 == strcmp(k, "INTFMT" )) strncpy(f_ifmt, v, 99);
+		if (0 == strcmp(k, "FORMAT" )) strncpy(f_format, v, 98);
+		if (0 == strcmp(k, "TYPE"   )) strncpy(f_type, v, 98);
+		if (0 == strcmp(k, "ORG"    )) strncpy(f_org, v, 98);
+		if (0 == strcmp(k, "INTFMT" )) strncpy(f_ifmt, v, 98);
 		if (0 == strcmp(k, "NL"     )) f_nl  = atoi(v);
 		if (0 == strcmp(k, "NS"     )) f_ns  = atoi(v);
 		if (0 == strcmp(k, "NB"     )) f_nb  = atoi(v);
@@ -3973,6 +3982,43 @@ static void iio_write_image_as_csv(const char *filename, struct iio_image *x)
 	xfclose(f);
 }
 
+// TXT writer                                                               {{{2
+static void iio_write_image_as_txt(const char *filename, struct iio_image *x)
+{
+	FILE *f = xfopen(filename, "w");
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	assert(x->pixel_dimension == 1);
+	if (x->type == IIO_TYPE_FLOAT) {
+		float *t = x->data;
+		for (int i = 0; i < w*h; i++)
+			fprintf(f, "%.9g%c", t[i], (i+1)%w?' ':'\n');
+	}
+	if (x->type == IIO_TYPE_DOUBLE) {
+		double *t = x->data;
+		for (int i = 0; i < w*h; i++)
+			fprintf(f, "%.9g%c", t[i], (i+1)%w?' ':'\n');
+	}
+	if (x->type == IIO_TYPE_UINT8) {
+		uint8_t *t = x->data;
+		for (int i = 0; i < w*h; i++)
+			fprintf(f, "%d%c", t[i], (i+1)%w?' ':'\n');
+	}
+	xfclose(f);
+}
+
+// general text&separator writing function
+static void iio_write_image_as_txt_general(
+		const char *filename, struct iio_image *x,
+		char *optional_seplist)
+{
+	(void)filename;
+	(void)x;
+	char *seplist = optional_seplist;
+	if (!seplist) seplist = " \t\n";
+	int nseps = strlen(seplist);
+}
+
 // NPY writer                                                               {{{2
 static void iio_write_image_as_npy(const char *filename, struct iio_image *x)
 {
@@ -3991,7 +4037,7 @@ static void iio_write_image_as_npy(const char *filename, struct iio_image *x)
 		case IIO_TYPE_DOUBLE : descr = "<f8"; break;
 		default: fail("unrecognized internal type %d\n", x->type);
 	}
-	char buf[1000] = {0x93, 'N', 'U', 'M', 'P', 'Y', 1, 0, 0}; // magic
+	char buf[1000] = {-109, 'N', 'U', 'M', 'P', 'Y', 1, 0, 0}; // magic
 	int n = 10;               // size of magic before header string
 	n += snprintf(buf+n, 1000-n, "{'descr': '%s', 'fortran_order': "
 			"False, 'shape': (", descr);
@@ -4123,7 +4169,7 @@ static void dump_sixels_to_bytestream_rgb3(
 		struct bytestream *out,
 		uint8_t *x, int w, int h)
 {
-	bs_puts(out, "\ePq\n");
+	bs_puts(out, "\033Pq\n");
 	for (int i = 0; i < 0x100; i++)
 		bs_printf(out, "#%d;2;%d;%d;%d", i,
 				(int)(14.2857*(i/32)),
@@ -4168,7 +4214,7 @@ static void dump_sixels_to_bytestream_rgb3(
 			bs_puts(out, c ? "$\n" : "-\n");
 		}
 	}
-	bs_puts(out, "\e\\");
+	bs_puts(out, "\033\\");
 }
 
 static void dump_sixels_to_bytestream_gray2(
@@ -4176,7 +4222,7 @@ static void dump_sixels_to_bytestream_gray2(
 		uint8_t *x, int w, int h)
 {
 	int Q = (1<<2); // quantization over [0..255]
-	bs_printf(out, "\ePq\n");
+	bs_printf(out, "\033Pq\n");
 	for (int i = 0; i < 0x100/Q; i++)
 		bs_printf(out, "#%d;2;%d;%d;%d",
 			i, (int)(Q*.39*i), (int)(Q*.39*i), (int)(Q*.39*i));
@@ -4212,7 +4258,7 @@ static void dump_sixels_to_bytestream_gray2(
 			bs_printf(out, c ? "$\n" : "-\n");
 		}
 	}
-	bs_printf(out, "\e\\");
+	bs_printf(out, "\033\\");
 }
 
 //static void dump_sixels_to_stdout_rgb3(uint8_t *x, int w, int h)
