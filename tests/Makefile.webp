@@ -1,0 +1,4 @@
+LDLIBS = -ljpeg -lpng -ltiff -lwebp
+CPPFLAGS = -DI_CAN_HAS_LIBWEBP
+
+include rules.mk
