@@ -2057,6 +2057,8 @@ static int read_whole_hdf5(struct iio_image *x, const char *filename_raw)
 	else if (ndim==3 && dim[0]==1) { w=dim[2]; h=dim[1]; }
 	else if (ndim==3 && dim[2]==1) { w=dim[1]; h=dim[0]; }
 	else if (ndim==4 && dim[0]==1) { w=dim[2]; h=dim[1]; pd=dim[3]; brk=1; }
+	else if (ndim==3) {w=dim[1]; h=dim[0]; pd=dim[2]; }
+	else fail("h5 bad ndim=%d dim[0]=%d...", ndim, (int)dim[0]);
 
 	IIO_DEBUG("h5 w=%d h=%d pd=%d brk=%d\n", w, h, pd, brk);
 
