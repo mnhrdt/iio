@@ -5736,6 +5736,14 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		iio_write_image_as_npy(filename, x);
 		return;
 	}
+	if (true) {
+		char *txtname = strstr(filename, "TXT:");
+		if (txtname == filename) {
+			IIO_DEBUG("TXT prefix detected\n");
+			iio_write_image_as_txt(filename+4, x);
+			return;
+		}
+	}
 #ifdef I_CAN_HAS_LIBTIFF
 	if (true) {
 		if (false
