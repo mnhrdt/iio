@@ -4322,6 +4322,24 @@ static void iio_write_image_as_txt_general(
 	int nseps = strlen(seplist);
 }
 
+// RAW writer                                                               {{{2
+static void iio_write_image_as_raw(const char *filename, struct iio_image *x)
+{
+	// debugging shit
+	IIO_DEBUG("dumping RAW\n");
+	IIO_DEBUG("   dim=%d\n", x->dimension);
+	for (int i = 0; i < x->dimension; i++)
+		IIO_DEBUG("   size[%d] = %d\n", i, x->sizes[i]);
+	IIO_DEBUG("   pd = %d\n", x->pixel_dimension);
+	IIO_DEBUG("   type = %d \"%s\"\n", x->type, iio_strtyp(x->type));
+
+	// actual writing
+	FILE *f = xfopen(filename, "w");
+	fwrite(x->data, iio_image_sample_size(x),
+			iio_image_number_of_samples(x), f);
+	xfclose(f);
+}
+
 // NPY writer                                                               {{{2
 static void iio_write_image_as_npy(const char *filename, struct iio_image *x)
 {
@@ -5777,6 +5795,10 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		iio_write_image_as_txt(filename, x);
 		return;
 	}
+	if (string_suffix(filename, ".raw")) {
+		iio_write_image_as_raw(filename, x);
+		return;
+	}
 	if (string_suffix(filename, ".mw") && typ == IIO_TYPE_FLOAT
 				&& x->pixel_dimension == 1) {
 		iio_write_image_as_rim_fimage(filename, x);
@@ -5816,6 +5838,14 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		if (txtname == filename) {
 			IIO_DEBUG("TXT prefix detected\n");
 			iio_write_image_as_txt(filename+4, x);
+			return;
+		}
+	}
+	if (true) {
+		char *txtname = strstr(filename, "RAW:");
+		if (txtname == filename) {
+			IIO_DEBUG("RAW prefix detected\n");
+			iio_write_image_as_raw(filename+4, x);
 			return;
 		}
 	}
