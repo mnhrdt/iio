@@ -67,9 +67,12 @@
 	fprintf(stderr,__VA_ARGS__);}} while(0)
 #  else//__STRICT_ANSI__
 #    define IIO_DEBUG(...) do {\
-	if (xgetenv("IIO_DEBUG")){\
-	fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__PRETTY_FUNCTION__);\
-	fprintf(stderr,__VA_ARGS__);}} while(0)
+	if (xgetenv("IIO_DEBUG")) {\
+		switch(atoi(xgetenv("IIO_DEBUG"))) {\
+		case 3: fprintf(stderr,"DEBUG(%s:%d:%s): ",__FILE__,__LINE__,__PRETTY_FUNCTION__); break;\
+		case 2: fprintf(stderr,"DEBUG(%s:%d): ",__FILE__,__LINE__); break;\
+		case 1: fprintf(stderr,"DEBUG: "); break;\
+		default: break; } fprintf(stderr,__VA_ARGS__); } } while(0)
 #  endif//__STRICT_ANSI__
 #else//IIO_SHOW_DEBUG_MESSAGES
 #  define IIO_DEBUG(...) do { do_nop(__VA_ARGS__); } while(0) /* nothing */
