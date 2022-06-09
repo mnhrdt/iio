@@ -627,6 +627,12 @@ static size_t  iio_image_sample_size(struct iio_image *x)
 }
 
 // internal API
+static size_t  iio_image_pixel_size(struct iio_image *x)
+{
+	return iio_type_size(x->type) * x->pixel_dimension;
+}
+
+// internal API
 static size_t  iio_image_data_size(struct iio_image *x)
 {
 	return iio_image_sample_size(x) * iio_image_number_of_samples(x);
@@ -1551,7 +1557,7 @@ void on_jpeg_error(j_common_ptr cinfo)
 	// this error happens, for example, when reading a truncated jpeg file
 	char buf[JMSG_LENGTH_MAX];
 	(*cinfo->err->format_message)(cinfo, buf);
-	fail("%s", buf);
+	fail("JPEG: %s", buf);
 }
 
 static int read_whole_jpeg(struct iio_image *x, FILE *f)
@@ -3315,6 +3321,7 @@ static int read_beheaded_npy(struct iio_image *x,
 	if (false) ;
 	else if (0 == strcmp(desc, "f8")) x->type = IIO_TYPE_DOUBLE;
 	else if (0 == strcmp(desc, "f4")) x->type = IIO_TYPE_FLOAT;
+	//else if (0 == strcmp(desc, "e")) x->type = IIO_TYPE_HALF;
 	else if (0 == strcmp(desc, "u1")) x->type = IIO_TYPE_UINT8;
 	else if (0 == strcmp(desc, "u2")) x->type = IIO_TYPE_UINT16;
 	else if (0 == strcmp(desc, "u4")) x->type = IIO_TYPE_UINT32;
@@ -4293,7 +4300,12 @@ static void iio_write_image_as_txt(const char *filename, struct iio_image *x)
 	FILE *f = xfopen(filename, "w");
 	int w = x->sizes[0];
 	int h = x->sizes[1];
-	assert(x->pixel_dimension == 1);
+	if (x->pixel_dimension != 1)
+	{
+		if (w == 1) w = x->pixel_dimension;
+		else if (h == 1) w = x->pixel_dimension;
+		else assert(false);
+	}
 	if (x->type == IIO_TYPE_FLOAT) {
 		float *t = x->data;
 		for (int i = 0; i < w*h; i++)
@@ -4738,6 +4750,50 @@ static void dump_sixels_to_stdout(struct iio_image *x)
 	}
 }
 
+
+// JPEG writer                                                              {{{2
+
+#ifdef I_CAN_HAS_LIBJPEG
+
+static void iio_write_image_as_jpeg(const char *filename, struct iio_image *x)
+{
+	// allocate and initialize a JPEG compression object
+	struct jpeg_compress_struct cinfo[1];
+	struct jpeg_error_mgr jerr[1];
+	cinfo->err = jpeg_std_error(jerr);
+	jerr[0].error_exit = on_jpeg_error;
+	jpeg_create_compress(cinfo);
+
+	// specify the destination of the compressed data
+	FILE *f = xfopen(filename, "w");
+	jpeg_stdio_dest(cinfo, f);
+
+	// set parameters for compression
+	cinfo->image_width      = x->sizes[0];
+	cinfo->image_height     = x->sizes[1];
+	cinfo->input_components = x->pixel_dimension;
+	cinfo->in_color_space   = JCS_UNKNOWN;
+	if (x->pixel_dimension == 1) cinfo->in_color_space = JCS_GRAYSCALE;
+	if (x->pixel_dimension == 3) cinfo->in_color_space = JCS_RGB;
+	jpeg_set_defaults(cinfo);
+
+	// compress
+	jpeg_start_compress(cinfo, true);
+	int stride = x->sizes[0] * iio_image_pixel_size(x);
+	JSAMPROW r[1];
+	for (int j = 0; j < x->sizes[1]; j++)
+	{
+		r[0] = j*stride + (unsigned char*)x->data;
+		jpeg_write_scanlines(cinfo, r, 1);
+	}
+
+	// cleanup and exit
+	jpeg_finish_compress(cinfo);
+	jpeg_destroy_compress(cinfo);
+	xfclose(f);
+}
+
+#endif//I_CAN_HAS_LIBJPEG
 
 // guess format using magic                                                 {{{1
 
@@ -5793,7 +5849,11 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 	if (string_suffix(filename, ".txt") &&
 			(typ==IIO_TYPE_FLOAT || typ==IIO_TYPE_DOUBLE ||
 			 typ==IIO_TYPE_UINT8)
-				&& x->pixel_dimension == 1) {
+				&& (x->pixel_dimension == 1
+					|| x->sizes[0] == 1
+					|| x->sizes[1] == 1
+				   )
+	   ) {
 		iio_write_image_as_txt(filename, x);
 		return;
 	}
@@ -5940,6 +6000,25 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		}
 	}
 #endif//I_CAN_HAS_LIBPNG
+#ifdef I_CAN_HAS_LIBJPEG
+	if (string_suffix(filename, ".jpg") || string_suffix(filename, ".jpeg"))
+	{
+		IIO_DEBUG("jpeg extension detected\n");
+		if (typ != IIO_TYPE_UINT8) {
+			void *old_data = x->data;
+			int ss = iio_image_sample_size(x);
+			x->data = xmalloc(nsamp*ss);
+			memcpy(x->data, old_data, nsamp*ss);
+			iio_convert_samples(x, IIO_TYPE_UINT8);
+			iio_write_image_default(filename, x);//recursive
+			xfree(x->data);
+			x->data = old_data;
+			return;
+		}
+		iio_write_image_as_jpeg(filename, x);
+		return;
+	}
+#endif//I_CAN_HAS_LIBJPEG
 	IIO_DEBUG("SIDEF:\n");
 //#ifdef IIO_SHOW_DEBUG_MESSAGES
 //	iio_print_image_info(stderr, x);
