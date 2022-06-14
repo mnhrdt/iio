@@ -340,12 +340,14 @@ static void fail(const char *fmt, ...)
 #endif//IIO_ABORT_ON_ERROR
 }
 
+#ifndef IIO_SHOW_DEBUG_MESSAGES
 static void do_nop(void *p, ...)
 {
 	va_list argp;
 	va_start(argp, p);
 	va_end(argp);
 }
+#endif
 
 static void *xmalloc(size_t size)
 {
@@ -3012,6 +3014,7 @@ static int read_beheaded_pds(struct iio_image *x,
 	if (n != 1) { free(x->data); return 3; }
 
 	// if necessary, transpose and trim data
+	if (flip_v) inplace_flip_vertical(x);
 	if (flip_h) inplace_flip_horizontal(x);
 		inplace_trim(x, crop_left, 0, crop_right, 0);
 
@@ -3386,9 +3389,9 @@ static int read_beheaded_vic(struct iio_image *x,
 	int f_nl = -1;      // number of lines
 	int f_ns = -1;      // number of samples (per line)
 	int f_nb = -1;      // numbef of bands (pixel dimension)
-	int f_n1 = -1;      // 1st dimension
-	int f_n2 = -1;      // 2nd dimension
-	int f_n3 = -1;      // 3rd dimension
+	//int f_n1 = -1;      // 1st dimension
+	//int f_n2 = -1;      // 2nd dimension
+	//int f_n3 = -1;      // 3rd dimension
 	int f_nbb = 0;      // trim bytes at left of each line line
 	int f_nlb = 0;      // trim records at the beginning
 
@@ -3411,9 +3414,9 @@ static int read_beheaded_vic(struct iio_image *x,
 		if (0 == strcmp(k, "NL"     )) f_nl  = atoi(v);
 		if (0 == strcmp(k, "NS"     )) f_ns  = atoi(v);
 		if (0 == strcmp(k, "NB"     )) f_nb  = atoi(v);
-		if (0 == strcmp(k, "N1"     )) f_n1  = atoi(v);
-		if (0 == strcmp(k, "N2"     )) f_n2  = atoi(v);
-		if (0 == strcmp(k, "N3"     )) f_n3  = atoi(v);
+		//if (0 == strcmp(k, "N1"     )) f_n1  = atoi(v);
+		//if (0 == strcmp(k, "N2"     )) f_n2  = atoi(v);
+		//if (0 == strcmp(k, "N3"     )) f_n3  = atoi(v);
 		if (0 == strcmp(k, "NBB"    )) f_nbb = atoi(v);
 		if (0 == strcmp(k, "NLB"    )) f_nlb = atoi(v);
 	cont:	 tok = strtok(0, " ");
@@ -3475,12 +3478,12 @@ static int read_beheaded_vic(struct iio_image *x,
 // CCSD3ZF reader                                                           {{{2
 
 // clean a short-padded string
-static void sanitize_label(char *s)
-{
-	int n = strlen(s);
-	if (n>1 && 0 == n%2 && !isalnum(s[n-1]))
-		s[n-1] = '\0';
-}
+//static void sanitize_label(char *s)
+//{
+//	int n = strlen(s);
+//	if (n>1 && 0 == n%2 && !isalnum(s[n-1]))
+//		s[n-1] = '\0';
+//}
 
 static int read_beheaded_ccs(struct iio_image *x,
 		FILE *f, char *header, int nheader)
@@ -4325,16 +4328,16 @@ static void iio_write_image_as_txt(const char *filename, struct iio_image *x)
 }
 
 // general text&separator writing function
-static void iio_write_image_as_txt_general(
-		const char *filename, struct iio_image *x,
-		char *optional_seplist)
-{
-	(void)filename;
-	(void)x;
-	char *seplist = optional_seplist;
-	if (!seplist) seplist = " \t\n";
-	int nseps = strlen(seplist);
-}
+//static void iio_write_image_as_txt_general(
+//		const char *filename, struct iio_image *x,
+//		char *optional_seplist)
+//{
+//	(void)filename;
+//	(void)x;
+//	char *seplist = optional_seplist;
+//	if (!seplist) seplist = " \t\n";
+//	int nseps = strlen(seplist);
+//}
 
 // RAW writer                                                               {{{2
 static void iio_write_image_as_raw(const char *filename, struct iio_image *x)
@@ -5098,6 +5101,8 @@ static bool comma_named_tiff(const char *filename)
 	return retval;
 }
 
+
+#ifdef I_CAN_HAS_LIBHDF5
 static bool comma_named_hdf5(const char *filename)
 {
 	IIO_DEBUG("hdf5 try \"%s\"\n", filename);
@@ -5131,6 +5136,7 @@ static bool comma_named_hdf5(const char *filename)
 	}
 	return retval;
 }
+#endif//I_CAN_HAS_LIBHDF5
 
 // dispatcher                                                               {{{1
 
