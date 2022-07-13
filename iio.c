@@ -4761,38 +4761,42 @@ static void dump_sixels_to_stdout(struct iio_image *x)
 static void iio_write_image_as_jpeg(const char *filename, struct iio_image *x)
 {
 	// allocate and initialize a JPEG compression object
-	struct jpeg_compress_struct cinfo[1];
-	struct jpeg_error_mgr jerr[1];
-	cinfo->err = jpeg_std_error(jerr);
-	jerr[0].error_exit = on_jpeg_error;
-	jpeg_create_compress(cinfo);
+	struct jpeg_compress_struct c[1];
+	struct jpeg_error_mgr e[1];
+	c->err = jpeg_std_error(e);
+	e[0].error_exit = on_jpeg_error;
+	jpeg_create_compress(c);
 
 	// specify the destination of the compressed data
 	FILE *f = xfopen(filename, "w");
-	jpeg_stdio_dest(cinfo, f);
+	jpeg_stdio_dest(c, f);
 
 	// set parameters for compression
-	cinfo->image_width      = x->sizes[0];
-	cinfo->image_height     = x->sizes[1];
-	cinfo->input_components = x->pixel_dimension;
-	cinfo->in_color_space   = JCS_UNKNOWN;
-	if (x->pixel_dimension == 1) cinfo->in_color_space = JCS_GRAYSCALE;
-	if (x->pixel_dimension == 3) cinfo->in_color_space = JCS_RGB;
-	jpeg_set_defaults(cinfo);
+	c->image_width      = x->sizes[0];
+	c->image_height     = x->sizes[1];
+	c->input_components = x->pixel_dimension;
+	c->in_color_space   = JCS_UNKNOWN;
+	if (x->pixel_dimension == 1) c->in_color_space = JCS_GRAYSCALE;
+	if (x->pixel_dimension == 3) c->in_color_space = JCS_RGB;
+	jpeg_set_defaults(c);
+
+	// optionally, set compression quality
+	char *q = xgetenv("IIO_JPEG_QUALITY");
+	if (q) jpeg_set_quality(c, atoi(q), 1);
 
 	// compress
-	jpeg_start_compress(cinfo, true);
+	jpeg_start_compress(c, true);
 	int stride = x->sizes[0] * iio_image_pixel_size(x);
 	JSAMPROW r[1];
 	for (int j = 0; j < x->sizes[1]; j++)
 	{
 		r[0] = j*stride + (unsigned char*)x->data;
-		jpeg_write_scanlines(cinfo, r, 1);
+		jpeg_write_scanlines(c, r, 1);
 	}
 
 	// cleanup and exit
-	jpeg_finish_compress(cinfo);
-	jpeg_destroy_compress(cinfo);
+	jpeg_finish_compress(c);
+	jpeg_destroy_compress(c);
 	xfclose(f);
 }
 
