@@ -495,11 +495,8 @@ struct iio_image {
 	int pixel_dimension;
 	int type;             // IIO_TYPE_*
 
-	int meta;             // IIO_META_*
-	int format;           // IIO_FORMAT_*
+	char *rem;            // image comment (only used by output functions)
 
-	bool contiguous_data;
-	bool caca[3];
 	void *data;
 };
 
@@ -521,8 +518,6 @@ static void iio_image_assert_struct_consistency(struct iio_image *x)
 	case IIO_TYPE_LONG: case IIO_TYPE_LONGLONG: break;
 	default: assert(false);
 	}
-	//if (x->contiguous_data)
-	//	assert(x->data == (void*)(x+1));
 }
 
 // API
@@ -712,9 +707,9 @@ static void iio_image_fill(struct iio_image *x,
 	x->type = type;
 	x->pixel_dimension = pixel_dimension;
 	x->data = NULL;
-	x->format = -1;
-	x->meta = -1;
-	x->contiguous_data = false;
+	//x->format = -1;
+	//x->meta = -1;
+	x->rem = NULL;
 }
 
 
@@ -728,9 +723,9 @@ static void iio_wrap_image_struct_around_data(struct iio_image *x,
 	x->pixel_dimension = pixel_dimension;
 	x->type = type;
 	x->data = data;
-	x->contiguous_data = false;
-	x->meta = -42;
-	x->format = -42;
+	x->rem = NULL;
+	//x->meta = -42;
+	//x->format = -42;
 }
 
 
@@ -744,6 +739,18 @@ static void iio_image_build_independent(struct iio_image *x,
 	size_t datalength = 1; FORI(dimension) datalength *= sizes[i];
 	size_t datasize = datalength * iio_type_size(type) * pixel_dimension;
 	x->data = xmalloc(datasize);
+}
+
+static void iio_image_init2d(struct iio_image *x,
+		int w, int h, int pd, int type)
+{
+	x->dimension = 2;
+	x->sizes[0] = w;
+	x->sizes[1] = h;
+	x->pixel_dimension = pd;
+	x->type = type;
+	x->data = NULL;
+	x->rem = NULL;
 }
 
 static void inplace_swap_pixels(struct iio_image *x, int i, int j, int a, int b)
@@ -1184,7 +1191,6 @@ static void unpack_to_bytes_here(uint8_t *dest, uint8_t *src, int n, int bits)
 
 static void iio_convert_samples(struct iio_image *x, int desired_type)
 {
-	assert(!x->contiguous_data);
 	int source_type = normalize_type(x->type);
 	desired_type = normalize_type(desired_type);
 	if (source_type == desired_type) return;
@@ -1196,7 +1202,6 @@ static void iio_convert_samples(struct iio_image *x, int desired_type)
 
 static void iio_hacky_colorize(struct iio_image *x, int pd)
 {
-	assert(!x->contiguous_data);
 	// TODO: do something sensible for 2 or 4 channels
 	if (x->pixel_dimension != 1)
 		fail("please, do not colorize color stuff");
@@ -1216,7 +1221,6 @@ static void iio_hacky_colorize(struct iio_image *x, int pd)
 // uncolorize
 static void iio_hacky_uncolorize(struct iio_image *x)
 {
-	assert(!x->contiguous_data);
 	if (x->pixel_dimension != 3)
 		fail("please, do not uncolorize non-color stuff");
 	assert(x->pixel_dimension == 3);
@@ -1258,7 +1262,6 @@ static void iio_hacky_uncolorize(struct iio_image *x)
 // uncolorize
 static void iio_hacky_uncolorizea(struct iio_image *x)
 {
-	assert(!x->contiguous_data);
 	if (x->pixel_dimension != 4)
 		fail("please, do not uncolorizea non-colora stuff");
 	assert(x->pixel_dimension == 4);
@@ -1516,8 +1519,8 @@ static int read_beheaded_png(struct iio_image *x,
 	IIO_DEBUG("png get depth = %d\n", depth);
 	int sizes[2] = {w, h};
 	png_bytepp rows = png_get_rows(pp, pi);
-	x->format = IIO_FORMAT_PNG;
-	x->meta = -42;
+	//x->format = IIO_FORMAT_PNG;
+	//x->meta = -42;
 	switch (depth) {
 	case 1:
 	case 8:
@@ -1765,17 +1768,12 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 		IIO_DEBUG("tiff read RGBA image interfacing:\n");
 		IIO_DEBUG("\tw = %d\n", w);
 		IIO_DEBUG("\th = %d\n", h);
-		x->dimension = 2;
-		x->sizes[0] = w;
-		x->sizes[1] = h;
-		x->pixel_dimension = 4;
-		x->type = IIO_TYPE_UINT8;
+		iio_image_init2d(x, w, h, 4, IIO_TYPE_UINT8);
 		x->data = xmalloc(w*h*4);
 		r = TIFFReadRGBAImageOriented(tif, w, h, (uint32_t*)x->data, ORIENTATION_TOPLEFT, 0);
 		IIO_DEBUG("\tr = %d\n", r);
 		if (!r) fail("TIFFReadRGBAImage(\"%s\") failed\n", filename);
-		x->contiguous_data = false;
-		x->format = x->meta = -42;
+		//x->format = x->meta = -42;
 		return 0;
 	}
 go_on:
@@ -1880,14 +1878,8 @@ go_on:
 	xfree(buf);
 
 	// fill struct fields
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = spp;
-	x->type = fmt_iio;
-	x->format = x->meta = -42;
+	iio_image_init2d(x, w, h, spp, fmt_iio);
 	x->data = data;
-	x->contiguous_data = false;
 	return 0;
 }
 
@@ -2075,14 +2067,8 @@ static int read_whole_hdf5(struct iio_image *x, const char *filename_raw)
 	//if (w == 1 && pd > 1) {w = pd; pd = 1; }
 
 	// fill-in image struct
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->type = typ;
+	iio_image_init2d(x, w, h, pd, typ);
 	x->data = buf;
-	x->contiguous_data = false;
-	x->format = x->meta = -42;
 	//if (brk) repair_broken_pixels_inplace(x, w*h, pd, bytes_per_sample);
 	return 0;
 }
@@ -2115,6 +2101,7 @@ struct twostrings { char *a, *b; };
 static bool string_suffix(const char *s, const char *suf);
 static herr_t find_suffix(hid_t o, const char *n, const H5O_info_t *i, void *d)
 {
+	(void)o;
 	struct twostrings *p = d;
 	if (i->type == H5O_TYPE_DATASET && string_suffix(n, p->a))
 		return strncpy(p->b, n, FILENAME_MAX),1;
@@ -2137,6 +2124,7 @@ hid_t my_hd5open(hid_t f, char *suffix)
 	struct twostrings p = {suffix, dset};
 	p.a = suffix;
 	herr_t e = H5Ovisit1(f, H5_INDEX_NAME, H5_ITER_NATIVE, u, &p);
+	IIO_DEBUG("H50visit1 e = %d\n", (int)e);
 	if (*dset) IIO_DEBUG("HDF5_DSET = /%s\n", dset);
 	return *dset ? H5Dopen2(f, dset, H5P_DEFAULT) : -1;
 }
@@ -2164,12 +2152,7 @@ static int read_beheaded_webp(struct iio_image *x,
 
 	xfree(filedata); // XXX: leak upon load failure
 
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 4;
-	x->type = IIO_TYPE_UINT8;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 4, IIO_TYPE_UINT8);
 	x->data = data;
 	return 0;
 }
@@ -2202,12 +2185,7 @@ static int read_beheaded_heif(struct iio_image *x,
 	int w = heif_image_handle_get_width(handle);
 	int h = heif_image_handle_get_height(handle);
 
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 3;
-	x->type = IIO_TYPE_UINT8;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 3, IIO_TYPE_UINT8);
 	x->data = xmalloc(w*h*3);
 	for (int j = 0; j < h; j+=1)
 	for (int i = 0; i < w*3; i+=1)
@@ -2329,13 +2307,9 @@ static int read_beheaded_qnm(struct iio_image *x,
 	int r = read_qnm_numbers(data, f, nn, m, use_ascii);
 	if (nn - r) return (xfree(data),-7);
 
+	iio_image_init2d(x, w, h, pd, IIO_TYPE_FLOAT);
 	x->dimension = use_2d ? 2 : 3;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
 	if (d > 1) x->sizes[2] = d;
-	x->pixel_dimension = pd;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
 	x->data = data;
 	return 0;
 }
@@ -2361,12 +2335,7 @@ static int read_beheaded_pcm(struct iio_image *x,
 	float *data = xmalloc(w * h * 2 * sizeof(float));
 	int r = fread(data, sizeof(float), w * h * 2, f);
 	if (r != w * h * 2) return (xfree(data),-7);
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 2;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 2, IIO_TYPE_FLOAT);
 	x->data = data;
 	return 0;
 }
@@ -2609,12 +2578,7 @@ static int read_beheaded_pfm(struct iio_image *x,
 	float *data = xmalloc(w*h*4*pd);
 	if (1 != fread(data, w*h*4*pd, 1, f)) return (xfree(data),-4);
 
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 2, IIO_TYPE_FLOAT);
 	x->data = data;
 	return 0;
 }
@@ -2629,12 +2593,7 @@ static int read_beheaded_flo(struct iio_image *x,
 	float *data = xmalloc(w*h*2*sizeof*data);
 	if (1 != fread(data, w*h*4*2, 1, f)) return (xfree(data),-1);
 
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 2;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 2, IIO_TYPE_FLOAT);
 	x->data = data;
 	return 0;
 }
@@ -2657,12 +2616,7 @@ static int read_beheaded_juv(struct iio_image *x,
 	FORI(w*h) uv[2*i] = u[i];
 	FORI(w*h) uv[2*i+1] = v[i];
 	xfree(u); xfree(v);
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 2;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 2, IIO_TYPE_FLOAT);
 	x->data = uv;
 	return 0;
 }
@@ -2686,12 +2640,7 @@ static int read_beheaded_lum12(struct iio_image *x,
 		pick_char_for_sure(f);
 	uint16_t *data = xmalloc(w*h*sizeof*data);
 	if (1 != fread(data, w*h*2, 1, f)) return (xfree(data),-1);
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_UINT16;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_UINT16);
 	x->data = data;
 	return 0;
 }
@@ -2708,12 +2657,7 @@ static int read_beheaded_lum(struct iio_image *x,
 	float *data = xmalloc(w*h*sizeof*data);
 	if (1 != fread(data, w*h*4, 1, f)) return (xfree(data),-1);
 	switch_4endianness(data, w*h);
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_FLOAT);
 	x->data = data;
 	return 0;
 }
@@ -2780,14 +2724,8 @@ static int read_whole_exr(struct iio_image *x, const char *filename)
 	xfree(data);
 
 	// fill struct fields
-	x->dimension = 2;
-	x->sizes[0] = width;
-	x->sizes[1] = height;
-	x->pixel_dimension = 4;
-	x->type = IIO_TYPE_FLOAT;
-	x->format = x->meta = -42;
+	iio_image_init2d(x, w, h, 4, IIO_TYPE_FLOAT);
 	x->data = finaldata;
-	x->contiguous_data = false;
 	return 0;
 }
 
@@ -2855,7 +2793,7 @@ static int read_beheaded_asc(struct iio_image *x,
 	x->data = xmalloc(nsamples * sizeof*xdata);
 	recover_broken_pixels_float(x->data, xdata, n[0]*n[1]*n[2], n[3]);
 	xfree(xdata);
-	x->contiguous_data = false;
+	x->rem = NULL;
 	return 0;
 
 	//(void)nheader;
@@ -2996,12 +2934,7 @@ static int read_beheaded_pds(struct iio_image *x,
 	assert(typ > 0);
 
 	// fill-in the image struct
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = spp;
-	x->type = typ;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, spp, typ);
 
 	// alloc memory for image data
 	int size = w * h * spp * (bps/8);
@@ -3016,7 +2949,7 @@ static int read_beheaded_pds(struct iio_image *x,
 	// if necessary, transpose and trim data
 	if (flip_v) inplace_flip_vertical(x);
 	if (flip_h) inplace_flip_horizontal(x);
-		inplace_trim(x, crop_left, 0, crop_right, 0);
+	inplace_trim(x, crop_left, 0, crop_right, 0);
 
 	// return
 	return 0;
@@ -3041,12 +2974,7 @@ static int read_beheaded_csv(struct iio_image *x,
 	int w = nc / h + 1;
 
 	// fill-in the image struct
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_FLOAT);
 
 	// alloc memory for image data
 	int size = w * h * sizeof(float);
@@ -3088,12 +3016,7 @@ static int read_beheaded_txt(struct iio_image *x,
 	int w = nc / h + 1;
 
 	// fill-in the image struct
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_FLOAT);
 
 	// alloc memory for image data
 	int size = w * h * sizeof(float);
@@ -3167,12 +3090,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 	cx += xml_get_numeric_attr(&h, line, "Dataset", "rasterYSize");
 	if (!w || !h) return 2;
 	if (cx != 2) return 3;
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_FLOAT);
 	x->data = xmalloc(w * h * sizeof(float));
 	float (*xx)[w] = x->data;
 	int pos[4] = {0,0,0,0}, pos_cx = 0, has_fname = 0;
@@ -3223,12 +3141,7 @@ static int read_beheaded_ffd(struct iio_image *x,
 	uint32_t w = s[3] + 0x100 * s[2] + 0x10000 * s[1] + 0x1000000 * s[0];
 	uint32_t h = s[7] + 0x100 * s[6] + 0x10000 * s[5] + 0x1000000 * s[4];
 
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 4;
-	x->type = IIO_TYPE_UINT16;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 4, IIO_TYPE_UINT16);
 	x->data = xmalloc(w * h * 4 * sizeof(uint16_t));
 	uint32_t r = fread(x->data, 2, w*h*4, fin);
 	if (r != w*h*4) return 1;
@@ -3259,12 +3172,7 @@ static int read_beheaded_rat(struct iio_image *x,
 	if (var != 6)
 		fail("RAR option var=%d not implemented; ask enric", var);
 
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 2*d*d;
-	x->type = IIO_TYPE_FLOAT;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, 2*d*d, IIO_TYPE_FLOAT);
 	long total = w * h * d * d * 2;
 	x->data = xmalloc(total * sizeof(float));
 	long r = fread(x->data, sizeof(float), total, fin);
@@ -3342,11 +3250,7 @@ static int read_beheaded_npy(struct iio_image *x,
 	if (*desc == 'c') pd *= 2; // 1 complex = 2 reals
 
 	// fill image struct
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, pd, x->type);
 	size_t bps = iio_type_size(x->type);
 	IIO_DEBUG("bps = %d\n", (int)bps);
 	x->data = xmalloc(((bps * w) * h) * pd);
@@ -3443,11 +3347,7 @@ static int read_beheaded_vic(struct iio_image *x,
 	if (f_recsize != f_nbb + f_ns * bps)
 		fail("VICAR bad recsize %d != %d + %d * %d\n",
 				f_recsize, f_nbb, f_ns, bps);
-	x->dimension = 2;
-	x->sizes[0] = f_ns;
-	x->sizes[1] = f_nl;
-	x->pixel_dimension = f_nb;
-	x->contiguous_data = false;
+	iio_image_init2d(x, f_ns, f_nl, f_nb, x->type);
 
 	// fill-in the data
 	x->data = xmalloc(x->sizes[0] * x->sizes[1] * x->pixel_dimension * bps);
@@ -3581,12 +3481,7 @@ static int read_beheaded_fit(struct iio_image *x,
 	fprintf(stderr, "typ = %s (%d)\n", iio_strtyp(typ), typ);
 
 	// fill-in the image struct
-	x->dimension = 2; // NOTE: "d" is ignored in practice
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->type = typ;
-	x->contiguous_data = false;
+	iio_image_init2d(x, w, h, pd, typ);
 	int s = w * h * pd * iio_image_sample_size(x);
 	x->data = xmalloc(s);
 	n = fread(x->data, s, 1, f);
@@ -5363,7 +5258,6 @@ static int read_image(struct iio_image *x, const char *fname)
 	}
 	IIO_DEBUG("READ IMAGE pixel_dimension = %d\n",x->pixel_dimension);
 	IIO_DEBUG("READ IMAGE type = %s\n", iio_strtyp(x->type));
-	IIO_DEBUG("READ IMAGE contiguous_data = %d\n",x->contiguous_data);
 
 	char *trans = xgetenv("IIO_TRANS");
 	if (trans && *trans)
@@ -5804,6 +5698,17 @@ static bool string_suffix(const char *s, const char *suf)
 	return 0 == strcmp(suf, s + (len_s - len_suf));
 }
 
+// if f ~ /REM[.*]:.*/ return the position of the colon
+static char *rem_prefix(const char *f)
+{
+	if (f != strstr(f, "REM["))
+		return NULL;
+	char *colon = strchr(f, ':');
+	if (!colon || colon[-1] != ']')
+		return NULL;
+	return colon;
+}
+
 // Note:
 // This function was written without being designed.  See file "saving.txt" for
 // an attempt at designing it.
@@ -6093,11 +5998,7 @@ void iio_write_image_uint8_matrix_rgb(char *filename, uint8_t (**data)[3],
 		int w, int h)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 3;
-	x->type = IIO_TYPE_UINT8;
+	iio_image_init2d(x, w, h, 3, IIO_TYPE_UINT8);
 	x->data = data[0][0];
 	iio_write_image_default(filename, x);
 }
@@ -6105,11 +6006,7 @@ void iio_write_image_uint8_matrix_rgb(char *filename, uint8_t (**data)[3],
 void iio_write_image_uint8_matrix(char *filename, uint8_t **data, int w, int h)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_UINT8;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_UINT8);
 	x->data = data[0];
 	iio_write_image_default(filename, x);
 }
@@ -6118,13 +6015,8 @@ void iio_write_image_float_vec(char *filename, float *data,
 		int w, int h, int pd)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->type = IIO_TYPE_FLOAT;
+	iio_image_init2d(x, w, h, pd, IIO_TYPE_FLOAT);
 	x->data = data;
-	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
 }
 
@@ -6141,13 +6033,8 @@ void iio_write_image_int_vec(char *filename, int *data,
 		int w, int h, int pd)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->type = IIO_TYPE_INT;
+	iio_image_init2d(x, w, h, pd, IIO_TYPE_INT);
 	x->data = data;
-	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
 }
 
@@ -6155,13 +6042,8 @@ void iio_write_image_double_vec(char *filename, double *data,
 		int w, int h, int pd)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->type = IIO_TYPE_DOUBLE;
+	iio_image_init2d(x, w, h, pd, IIO_TYPE_DOUBLE);
 	x->data = data;
-	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
 }
 
@@ -6186,39 +6068,24 @@ void iio_write_image_int_split(char *filename, int *data,
 void iio_write_image_float(char *filename, float *data, int w, int h)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_FLOAT;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_FLOAT);
 	x->data = data;
-	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
 }
 
 void iio_write_image_double(char *filename, double *data, int w, int h)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_DOUBLE;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_DOUBLE);
 	x->data = data;
-	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
 }
 
 void iio_write_image_int(char *filename, int *data, int w, int h)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = 1;
-	x->type = IIO_TYPE_INT;
+	iio_image_init2d(x, w, h, 1, IIO_TYPE_INT);
 	x->data = data;
-	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
 }
 
@@ -6226,13 +6093,8 @@ void iio_write_image_uint8_vec(char *filename, uint8_t *data,
 		int w, int h, int pd)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->type = IIO_TYPE_UINT8;
+	iio_image_init2d(x, w, h, pd, IIO_TYPE_UINT8);
 	x->data = data;
-	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
 }
 
@@ -6249,13 +6111,8 @@ void iio_write_image_uint16_vec(char *filename, uint16_t *data,
 		int w, int h, int pd)
 {
 	struct iio_image x[1];
-	x->dimension = 2;
-	x->sizes[0] = w;
-	x->sizes[1] = h;
-	x->pixel_dimension = pd;
-	x->type = IIO_TYPE_UINT16;
+	iio_image_init2d(x, w, h, pd, IIO_TYPE_UINT16);
 	x->data = data;
-	x->contiguous_data = false;
 	iio_write_image_default(filename, x);
 }
 
