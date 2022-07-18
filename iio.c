@@ -707,8 +707,6 @@ static void iio_image_fill(struct iio_image *x,
 	x->type = type;
 	x->pixel_dimension = pixel_dimension;
 	x->data = NULL;
-	//x->format = -1;
-	//x->meta = -1;
 	x->rem = NULL;
 }
 
@@ -724,8 +722,6 @@ static void iio_wrap_image_struct_around_data(struct iio_image *x,
 	x->type = type;
 	x->data = data;
 	x->rem = NULL;
-	//x->meta = -42;
-	//x->format = -42;
 }
 
 
@@ -1519,8 +1515,6 @@ static int read_beheaded_png(struct iio_image *x,
 	IIO_DEBUG("png get depth = %d\n", depth);
 	int sizes[2] = {w, h};
 	png_bytepp rows = png_get_rows(pp, pi);
-	//x->format = IIO_FORMAT_PNG;
-	//x->meta = -42;
 	switch (depth) {
 	case 1:
 	case 8:
@@ -1773,7 +1767,6 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 		r = TIFFReadRGBAImageOriented(tif, w, h, (uint32_t*)x->data, ORIENTATION_TOPLEFT, 0);
 		IIO_DEBUG("\tr = %d\n", r);
 		if (!r) fail("TIFFReadRGBAImage(\"%s\") failed\n", filename);
-		//x->format = x->meta = -42;
 		return 0;
 	}
 go_on:
@@ -3936,6 +3929,14 @@ static void iio_write_image_as_png(const char *filename, struct iio_image *x)
 	}
 	assert(color_type != PNG_COLOR_TYPE_PALETTE);
 
+	if (x->rem) { // add png comment
+		png_text pt;
+		pt.key = "Comment";
+		pt.text = x->rem;
+		pt.compression = PNG_TEXT_COMPRESSION_NONE;
+		png_set_text(pp, pi, &pt, 1);
+	}
+
 	FILE *f = xfopen(filename, "w");
 	png_init_io(pp, f);
 
@@ -5716,6 +5717,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 {
 	IIO_DEBUG("going to write into filename \"%s\"\n", filename);
 	int typ = normalize_type(x->type);
+	char rem_text[FILENAME_MAX];
 	if (x->dimension != 2) fail("de moment només escrivim 2D");
 	if (!strcmp(filename,"-") && isatty(1))
 	{
@@ -5728,6 +5730,18 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 					x->pixel_dimension,
 					iio_strtyp(x->type));
 		return;
+	}
+	if (rem_prefix(filename)) {
+		char *colon = rem_prefix(filename);
+		int remlen = colon - (filename+4) - 1;
+		for (int i = 0; i < remlen; i++)
+			rem_text[i] = filename[4+i];
+		rem_text[remlen] = 0;
+		filename = 1 + colon;
+		x->rem = rem_text; // disappears when out of scope
+		IIO_DEBUG("rem filename = %s\n", filename);
+		IIO_DEBUG("rem text = %s\n", rem_text);
+		IIO_DEBUG("rem len = %d\n", remlen);
 	}
 	if (string_suffix(filename, ".uv") && typ == IIO_TYPE_FLOAT
 				&& x->pixel_dimension == 2) {
