@@ -1,6 +1,7 @@
 
-# NOTE: by now, "hdf5" is a hard requirement.  In the future I may propose pip
-# options that enable or disable a few library combinations.
+# NOTE: by now, "hdf5" is *not* a requirement, as it poses problems with colab
+# (that uses an outdated version, apparently).  In the future we may propose
+# pip options that enable or disable a few library combinations.
 
 from setuptools import setup, Extension
 from sysconfig import get_config_var
@@ -8,21 +9,22 @@ from subprocess import check_output
 import sys
 
 extra_compile_args = get_config_var('CFLAGS').split()
-extra_compile_args += ["-DI_CAN_HAS_LIBHDF5"]
+#extra_compile_args += ["-DI_CAN_HAS_LIBHDF5"]
 
+extra_link_args = []
 if sys.platform == "darwin":
     extra_link_args = ["-L /usr/local/lib"]
-else:
-    h5_f = str(check_output(["pkg-config", "--cflags", "hdf5"]), "utf8").split()
-    h5_l = str(check_output(["pkg-config", "--libs"  , "hdf5"]), "utf8").split()
-    extra_compile_args += h5_f
-    extra_link_args = h5_l
+#else:
+#    h5_f = str(check_output(["pkg-config", "--cflags", "hdf5"]), "utf8").split()
+#    h5_l = str(check_output(["pkg-config", "--libs"  , "hdf5"]), "utf8").split()
+#    extra_compile_args += h5_f
+#    extra_link_args = h5_l
 
 
 extensions = [Extension("libiio",
                         ["iio/iio.c"],
                         include_dirs=['iio', "/usr/local/include"],
-                        libraries=['png', 'jpeg', 'tiff',  "hdf5"],
+                        libraries=['png', 'jpeg', 'tiff'], #, "hdf5"],
                         library_dirs=["/usr/local/lib"],
                         extra_compile_args=extra_compile_args,
                         extra_link_args=extra_link_args,
@@ -55,7 +57,7 @@ class _CommandInstall(_install_lib):
                 for file in outfiles]
 
 setup(name="iio",
-      version='0.0.4a5',
+      version='1',
       author="Jérémy Anger, Gabriele Facciolo",
       author_email="angerj.dev@gmail.com",
       description="Python wrapper to iio",
