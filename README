@@ -186,6 +186,24 @@ measures.  One of this desperate measures is enabled by the environment
 variable  IIO_RAW, that specifies the "rawstring" of the file to be opened.
 
 
+4.4. IMAGE COMMENTS
+
+As a matter of principle, any kind of image metadata is severely frowned upon.
+Still, iio provides limited support for adding metadata to image files at the
+moment of writing them.  Only "comment" metadata fields are allowed, and only
+for four file formats: png, jpeg, tiff and ppm.
+
+Metadata comments are specified by the REM prefix when calling iio_write_*.
+For example, writing a file with this name:
+
+	REM[abc]:file.png
+
+Will write an image "file.png" with the comment "abc" inside.
+
+Equivalently, you can also set the environment variable IIO_REM=abc to the same
+effect.
+
+
 
 5. BLACK MAGIC USAGE
 --------------------
