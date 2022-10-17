@@ -4,6 +4,8 @@ To update the pypi hub, you need an account on pypi, and then run the following
 commands:
 
 	cd pypi
+        # update version number on file setup.py
+        # update version number on file iio.py
 	python3 setup.py sdist bdist_wheel
-	python3 -m twine upload dist/iio-*.tar.gz
+	python3 -m twine upload dist/iio-X.tar.gz
 	rm -rf build dist iio.egg-info

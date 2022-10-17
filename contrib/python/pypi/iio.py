@@ -4,12 +4,12 @@
 #           (for that, use "iio_read_image_numbers_as_they_are_stored")
 
 
-import os.path
+from os.path import abspath, dirname
 from ctypes import CDLL, POINTER, c_float, c_int, c_char_p, c_void_p
 from ctypes.util import find_library
 import numpy
 
-libiio = CDLL(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'libiio.so'))
+libiio = CDLL(f"{abspath(dirname(__file__))}/libiio.so")
 
 libc = CDLL(find_library('c'))
 libc.free.argtypes = [c_void_p]
@@ -41,5 +41,7 @@ def write(filename, data):
 	data = numpy.ascontiguousarray(data, dtype='float32')
 	iiosave(filename.encode('utf-8'), data, w, h, nch)
 
-__all__ = [ "read", "write" ]
+version = 3
+
+__all__ = [ "read", "write", "version" ]
 
