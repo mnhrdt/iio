@@ -3899,11 +3899,17 @@ int try_reading_file_with_libraw_4channels(const char *fname, struct iio_image *
 
 static void iio_write_image_as_png(const char *filename, struct iio_image *x)
 {
+	IIO_DEBUG("png writer filename = \"%s\"\n", filename);
+	IIO_DEBUG("png writer w,h,pd = %d,%d,%d\n",
+			x->sizes[0],x->sizes[1],x->pixel_dimension);
+	IIO_DEBUG("png writer rem = \"%s\"\n", x->rem);
+
 	png_structp pp = png_create_write_struct(PNG_LIBPNG_VER_STRING, 0,0,0);
 	if (!pp) fail("png_create_write_struct fail");
 	png_infop pi = png_create_info_struct(pp);
 	if (!pi) fail("png_create_info_struct fail");
 	if (setjmp(png_jmpbuf(pp))) fail("png write error");
+
 
 	if (x->dimension != 2) fail("can only save 2d images");
 	int width = x->sizes[0];
@@ -5726,7 +5732,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 {
 	IIO_DEBUG("going to write into filename \"%s\"\n", filename);
 	int typ = normalize_type(x->type);
-	char rem_text[FILENAME_MAX];
+	char rem_text[FILENAME_MAX]; //XXX: fails for recursive calls below
 	if (x->dimension != 2) fail("de moment només escrivim 2D");
 	if (!strcmp(filename,"-") && isatty(1))
 	{
@@ -5753,6 +5759,8 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		IIO_DEBUG("rem text = %s\n", rem_text);
 		IIO_DEBUG("rem len = %d\n", remlen);
 	}
+	if (x->rem)
+		IIO_DEBUG("rem = \"%s\"\n", x->rem);
 	if (string_suffix(filename, ".uv") && typ == IIO_TYPE_FLOAT
 				&& x->pixel_dimension == 2) {
 		iio_write_image_as_juv(filename, x);
@@ -5765,7 +5773,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 	}
 	if (string_suffix(filename, ".ppm") && typ == IIO_TYPE_FLOAT
 		&& (x->pixel_dimension == 1 || x->pixel_dimension == 3)) {
-	iio_write_image_as_ppm(filename, x);
+		iio_write_image_as_ppm(filename, x);
 		return;
 	}
 	if (string_suffix(filename, ".pgm") && typ == IIO_TYPE_FLOAT
@@ -5821,6 +5829,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 	if (typ == IIO_TYPE_FLOAT &&
 			these_floats_are_actually_bytes(x->data, nsamp))
 	{
+		IIO_DEBUG("recursive call for byte floats\n");
 		void *old_data = x->data;
 		x->data = xmalloc(nsamp*sizeof(float));
 		memcpy(x->data, old_data, nsamp*sizeof(float));
@@ -5929,7 +5938,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 				x->data = xmalloc(nsamp*ss);
 				memcpy(x->data, old_data, nsamp*ss);
 				iio_convert_samples(x, IIO_TYPE_UINT8);
-				iio_write_image_default(filename, x);//recursive
+				iio_write_image_as_png(filename, x);
 				xfree(x->data);
 				x->data = old_data;
 				return;
