@@ -41,7 +41,7 @@ def write(filename, data):
 	data = numpy.ascontiguousarray(data, dtype='float32')
 	iiosave(filename.encode('utf-8'), data, w, h, nch)
 
-version = 3
+version = 4
 
 __all__ = [ "read", "write", "version" ]
 

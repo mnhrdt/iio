@@ -5677,24 +5677,24 @@ uint8_t *iio_read_image_uint8(const char *fname, int *w, int *h)
 
 // API (output)                                                             {{{1
 
-static bool this_float_is_actually_a_byte(float x)
-{
-	return (x == (int)(x)) && (x >= 0) && (x < 256);
-}
+//static bool this_float_is_actually_a_byte(float x)
+//{
+//	return (x == (int)(x)) && (x >= 0) && (x < 256);
+//}
 
 //static bool this_float_is_actually_a_short(float x)
 //{
 //	return (x == floor(x)) && (x >= 0) && (x < 65536);
 //}
 
-static bool these_floats_are_actually_bytes(float *t, int n)
-{
-	IIO_DEBUG("checking %d floats for byteness (%p)\n", n, (void*)t);
-	FORI(n)
-		if (!this_float_is_actually_a_byte(t[i]))
-			return false;
-	return true;
-}
+//static bool these_floats_are_actually_bytes(float *t, int n)
+//{
+//	IIO_DEBUG("checking %d floats for byteness (%p)\n", n, (void*)t);
+//	FORI(n)
+//		if (!this_float_is_actually_a_byte(t[i]))
+//			return false;
+//	return true;
+//}
 
 //static bool these_floats_are_actually_shorts(float *t, int n)
 //{
@@ -5826,19 +5826,26 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 	}
 
 	int nsamp = iio_image_number_of_samples(x);
-	if (typ == IIO_TYPE_FLOAT &&
-			these_floats_are_actually_bytes(x->data, nsamp))
-	{
-		IIO_DEBUG("recursive call for byte floats\n");
-		void *old_data = x->data;
-		x->data = xmalloc(nsamp*sizeof(float));
-		memcpy(x->data, old_data, nsamp*sizeof(float));
-		iio_convert_samples(x, IIO_TYPE_UINT8);
-		iio_write_image_default(filename, x); // recursive call
-		xfree(x->data);
-		x->data = old_data;
-		return;
-	}
+
+	// NOTE: this is removed because it interferes with the static rem
+	// array above.  Nothing is really lost, this was a silly "optimization
+	// anyways".  For formats that require it, this quantization is
+	// performed non-recursively below.
+	//
+	//if (typ == IIO_TYPE_FLOAT &&
+	//		these_floats_are_actually_bytes(x->data, nsamp))
+	//{
+	//	IIO_DEBUG("recursive call for byte floats\n");
+	//	void *old_data = x->data;
+	//	x->data = xmalloc(nsamp*sizeof(float));
+	//	memcpy(x->data, old_data, nsamp*sizeof(float));
+	//	iio_convert_samples(x, IIO_TYPE_UINT8);
+	//	iio_write_image_default(filename, x); // recursive call
+	//	xfree(x->data);
+	//	x->data = old_data;
+	//	return;
+	//}
+
 	if (string_suffix(filename, ".npy")) {
 		iio_write_image_as_npy(filename, x);
 		return;
@@ -5893,7 +5900,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 				x->data = xmalloc(nsamp*ss);
 				memcpy(x->data, old_data, nsamp*ss);
 				iio_convert_samples(x, IIO_TYPE_UINT8);
-				iio_write_image_default(filename, x);//recursive
+				iio_write_image_as_png(filename+4, x);
 				xfree(x->data);
 				x->data = old_data;
 				return;
@@ -5912,7 +5919,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 				x->data = xmalloc(nsamp*ss);
 				memcpy(x->data, old_data, nsamp*ss);
 				iio_convert_samples(x, IIO_TYPE_UINT16);
-				iio_write_image_default(filename, x);//recursive
+				iio_write_image_as_png(filename+6, x);
 				xfree(x->data);
 				x->data = old_data;
 				return;
@@ -5958,7 +5965,7 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 			x->data = xmalloc(nsamp*ss);
 			memcpy(x->data, old_data, nsamp*ss);
 			iio_convert_samples(x, IIO_TYPE_UINT8);
-			iio_write_image_default(filename, x);//recursive
+			iio_write_image_as_jpeg(filename, x);
 			xfree(x->data);
 			x->data = old_data;
 			return;
