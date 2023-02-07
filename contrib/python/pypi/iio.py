@@ -41,7 +41,24 @@ def write(filename, data):
 	data = numpy.ascontiguousarray(data, dtype='float32')
 	iiosave(filename.encode('utf-8'), data, w, h, nch)
 
-version = 4
+# TODO: detect if we are outside a notebook, and then do otherwise
+def display(x):
+	from tempfile import NamedTemporaryFile
+	from base64 import b64encode
+	from IPython.display import display, HTML
+	from os import unlink
 
-__all__ = [ "read", "write", "version" ]
+	f = NamedTemporaryFile(prefix="iioshow_", suffix=".jpg", delete=False)
+	write(f.name, x)
+	b = b64encode(open(f.name, "rb").read()).decode()
+	unlink(f.name)
+	display(HTML(f"<img src=\"data:image/jpeg;base64,{b}&#10;\"/>"))
+
+
+# TODO: write a "gallery" function to display images in a css flip gallery
+
+
+version = 5
+
+__all__ = [ "read", "write", "display", "version" ]
 
