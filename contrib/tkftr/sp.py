@@ -2,9 +2,9 @@
 
 import numpy
 import tkinter
-import piio
+import iio
 
-x = piio.read("x.png").squeeze()
+x = iio.read("x.png").squeeze()
 x = numpy.uint8(x)
 x_bytes = x.data.tobytes()
 
