@@ -128,4 +128,3 @@ def gallery(images, image_labels=None):
 version = 6
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
-

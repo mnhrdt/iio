@@ -57,9 +57,9 @@ class _CommandInstall(_install_lib):
                 for file in outfiles]
 
 setup(name="iio",
-      version='5',
-      author="Jérémy Anger, Gabriele Facciolo",
-      author_email="angerj.dev@gmail.com",
+      version='6',
+      author="Jérémy Anger, Gabriele Facciolo, Enric Meinhardt-Llopis",
+      author_email="enric.meinhardt@fastmail.com",
       description="Python wrapper to iio",
       url='https://github.com/mnhrdt/iio',
       classifiers=[
