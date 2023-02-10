@@ -1,0 +1,37 @@
+Status of IIO development
+-------------------------
+
+
+HIGH PRIORITY:
+
+* Add missing cases for TIFF reader:
+  - compressed tiles with multiple channels
+  - non-compressed strips with multiple channels
+  - compressed bitlengths not multiple of 8 (e.g. 12 bits)
+
+* Add JPEG2000 reader (not very interesting in itself, but a good stepping
+  stone towards adding it into fancy_image)
+
+* Fix the TXT reader so that it is usable without env vars (requires heuristics)
+
+
+
+MEDIUM PRIORITY:
+
+* Write fortran interface
+
+* Re-think python interface (should the output number type depend on the input
+  file?)
+
+
+
+LOW PRIORITY:
+
+* Provide stripped-down versions of iio.c with fewer or no dependencies
+  (maybe with user-selectable dependency choice?)
+
+* Write tiff reader by hand, eliminate libtiff dependency
+
+* Develop the usage and interface for 3d images
+
+* Develop the usage for ``1d images'' (signals and unordered point clouds)
