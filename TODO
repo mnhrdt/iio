@@ -23,6 +23,10 @@ MEDIUM PRIORITY:
 * Re-think python interface (should the output number type depend on the input
   file?)
 
+* Sligthly more powerful magic filename language
+
+* Optimize sixel output
+
 
 
 LOW PRIORITY:

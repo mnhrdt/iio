@@ -11,6 +11,11 @@ in many formats.
 To use the functions, copy the "iio.c" and "iio.h" files into your source code.
 Edit the macros at the start of "iio.c" to fine-tune your library requirements.
 
+Find bindings for lua, octave and python inside the "interfaces" folder.
+The Python binding can be installed by "pip install iio".
+
+Find several usage examples in the imscript suite: git.sr.ht/~coco/imscript
+
 
 
 2. PHILOSOPHY
@@ -320,8 +325,10 @@ appropriate compile-time option is enabled):
 	* PNG
 	* JPEG
 	* TIFF
-	* EXR (disabled by default)
-	* HDF5 (disabled by default)
+	* WEBP (disabled by default, for now)
+	* HEIF (disabled by default)
+	* EXR (disabled by default, shenanigans on some bsd distros)
+	* HDF5 (disabled by default, huge dependency)
 
 
 
@@ -371,7 +378,7 @@ iio.c                     implementation
 doc/*                     documentation (mostly philosohpical)
 samples/*                 test images
 mini/iio.{c,h}            mini version, crippled, without deps
-contrib/octave/*          octave bindings
-contrib/lua/*             lua bindings
-contrib/python/*          python bindings
-contrib/cmake/*           cmake helper files
+interfaces/octave/*       octave bindings
+interfaces/lua/*          lua bindings
+interfaces/python/*       python bindings
+interfaces/cmake/*        cmake helper files
