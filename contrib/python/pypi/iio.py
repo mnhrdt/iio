@@ -1,45 +1,84 @@
 
-# TODO : 1. rewrite using cffi and keeping the same funcionality
-# TODO : 2. create numpy array of the same sample type as the given file
+# TODO : 0. better handle the case when the image cannot be read (how?)
+# TODO : 1. display fails for wide images (e.g. 1000000x1), protect against it
+# TODO : 2. rewrite using cffi and keeping the same funcionality
+# TODO?: 3. create numpy array of the same sample type as the given file
 #           (for that, use "iio_read_image_numbers_as_they_are_stored")
+#           Caveat: numpy itself is not type-transparent, so this creates some
+#           problems.  For example, a code may work or not depending on the
+#           image file type.
 
 
-from os.path import abspath, dirname
-from ctypes import CDLL, POINTER, c_float, c_int, c_char_p, c_void_p
-from ctypes.util import find_library
-import numpy
+# globally accessible C functions
+__libc_free = 0
+__iio_read  = 0
+__iio_write = 0
 
-libiio = CDLL(f"{abspath(dirname(__file__))}/libiio.so")
+def __setup_functions():
+	global __libc_free
+	global __iio_read
+	global __iio_write
+	if (__libc_free != 0): return
 
-libc = CDLL(find_library('c'))
-libc.free.argtypes = [c_void_p]
-libc.free.restype = c_void_p
+	from os.path import abspath, dirname
+	from ctypes import CDLL, POINTER, c_float, c_int, c_char_p, c_void_p
+	from ctypes.util import find_library
+	from numpy.ctypeslib import ndpointer
 
-iioread = libiio.iio_read_image_float_vec
-iioread.argtypes = [c_char_p, POINTER(c_int), POINTER(c_int), POINTER(c_int)]
-iioread.restype = POINTER(c_float)
+	libiio = CDLL(f"{abspath(dirname(__file__))}/libiio.so")
 
-iiosave = libiio.iio_write_image_float_vec
-iiosave.argtypes = [c_char_p, numpy.ctypeslib.ndpointer(c_float),c_int,c_int,c_int]
-iiosave.restype = None
+	libc = CDLL(find_library('c'))
+	libc.free.argtypes = [c_void_p]
+	libc.free.restype = c_void_p
+	__libc_free = libc.free
+
+	R = libiio.iio_read_image_float_vec
+	R.argtypes = [c_char_p, POINTER(c_int), POINTER(c_int), POINTER(c_int)]
+	R.restype = POINTER(c_float)
+	__iio_read = R
+
+	W = libiio.iio_write_image_float_vec
+	W.argtypes = [c_char_p, ndpointer(c_float),c_int,c_int,c_int]
+	W.restype = None
+	__iio_write = W
+
 
 def read(filename):
+	from ctypes import c_int
+	from numpy.ctypeslib import as_array
+
+	__setup_functions()
+
 	w = c_int()
 	h = c_int()
-	nch = c_int()
+	d = c_int()
 
-	ptr = iioread(filename.encode('utf-8'), w, h, nch)
-	data = numpy.ctypeslib.as_array(ptr, (h.value, w.value, nch.value)).copy()
-	libc.free(ptr)
-	return data
+	p = __iio_read(filename.encode('utf-8'), w, h, d)
+	x = as_array(p, (h.value, w.value, d.value)).copy()
+	__libc_free(p)
+	return x
 
-def write(filename, data):
-	h = data.shape[0]
-	w = len(data.shape) <= 1 and 1 or data.shape[1]
-	nch = len(data.shape) <= 2 and 1 or data.shape[2]
 
-	data = numpy.ascontiguousarray(data, dtype='float32')
-	iiosave(filename.encode('utf-8'), data, w, h, nch)
+def write(filename, x):
+	from numpy import ascontiguousarray
+
+	__setup_functions()
+
+	h = x.shape[0]
+	w = len(x.shape) <= 1 and 1 or x.shape[1]
+	d = len(x.shape) <= 2 and 1 or x.shape[2]
+
+	p = ascontiguousarray(x, dtype='float32')
+	__iio_write(filename.encode('utf-8'), p, w, h, d)
+
+
+def __notebookP():
+	try:
+		x = get_ipython().config
+		return True
+	except NameError:
+		return False
+
 
 def __img_tag_with_b64jpg(x):
 	from tempfile import NamedTemporaryFile
@@ -52,12 +91,24 @@ def __img_tag_with_b64jpg(x):
 	unlink(f.name)
 	return f"<img src=\"data:image/jpeg;base64,{b}&#10;\"/>"
 
+
 # TODO: detect if we are outside a notebook, and then do otherwise
 def display(x):
+	if not __notebookP():
+		write("-", x)
+		return
+
 	from IPython.display import display, HTML
 	display(HTML(__img_tag_with_b64jpg(x)))
 
-def gallery(images, image_labels=None):
+
+def gallery(images):
+	if not __notebookP():
+		for x in images:
+			write("-", x)
+		return
+
+
 	from  IPython.display import display, HTML
 
 	L = ""  # html list of gallery items
@@ -125,6 +176,6 @@ def gallery(images, image_labels=None):
 
 
 
-version = 6
+version = 7
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
