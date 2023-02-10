@@ -21,11 +21,13 @@ MEDIUM PRIORITY:
 * Write fortran interface
 
 * Re-think python interface (should the output number type depend on the input
-  file?)
+  file? And the great numpy debate: to squeeze or not to squeeze?)
 
 * Sligthly more powerful magic filename language
 
-* Optimize sixel output
+* Interface to read metadata (overload an input function with a sentinel):
+	char *t = iio_read_image_uint8("REM:file.png", &w, &h);
+	// now "t" contains "w" bytes of metadata
 
 
 
@@ -39,3 +41,7 @@ LOW PRIORITY:
 * Develop the usage and interface for 3d images
 
 * Develop the usage for ``1d images'' (signals and unordered point clouds)
+
+* Optimize sixel output
+
+* Fancier galleries for notebooks

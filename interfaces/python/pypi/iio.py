@@ -1,6 +1,6 @@
 
 # TODO : 0. better handle the case when the image cannot be read (how?)
-# TODO : 1. display fails for wide images (e.g. 1000000x1), protect against it
+# TODO : 1. decide whether display and gallery should be the same function
 # TODO : 2. rewrite using cffi and keeping the same funcionality
 # TODO?: 3. create numpy array of the same sample type as the given file
 #           (for that, use "iio_read_image_numbers_as_they_are_stored")
@@ -14,6 +14,8 @@ __libc_free = 0
 __iio_read  = 0
 __iio_write = 0
 
+
+# internal function to initialize the C interface
 def __setup_functions():
 	global __libc_free
 	global __iio_read
@@ -43,7 +45,9 @@ def __setup_functions():
 	__iio_write = W
 
 
+# API
 def read(filename):
+	"""Read an image file into a numpy array of floats"""
 	from ctypes import c_int
 	from numpy.ctypeslib import as_array
 
@@ -59,7 +63,9 @@ def read(filename):
 	return x
 
 
+# API
 def write(filename, x):
+	"""Write a numpy array into a named file"""
 	from numpy import ascontiguousarray
 
 	__setup_functions()
@@ -72,6 +78,7 @@ def write(filename, x):
 	__iio_write(filename.encode('utf-8'), p, w, h, d)
 
 
+# internal function to check if we are running inside a notebook
 def __notebookP():
 	try:
 		x = get_ipython().config
@@ -80,7 +87,11 @@ def __notebookP():
 		return False
 
 
+# internal function to urlencode a numpy array into html
 def __img_tag_with_b64jpg(x):
+	if (x.shape[0] > 4000):
+		return f'<b>cannot display image of size {x.shape}</b>'
+
 	from tempfile import NamedTemporaryFile
 	from base64 import b64encode
 	from os import unlink
@@ -92,8 +103,9 @@ def __img_tag_with_b64jpg(x):
 	return f"<img src=\"data:image/jpeg;base64,{b}&#10;\"/>"
 
 
-# TODO: detect if we are outside a notebook, and then do otherwise
+# API
 def display(x):
+	"""Display the image inline (notebook or sixel terminal)"""
 	if not __notebookP():
 		write("-", x)
 		return
@@ -102,7 +114,9 @@ def display(x):
 	display(HTML(__img_tag_with_b64jpg(x)))
 
 
+# API
 def gallery(images):
+	"""Display an array of images inline (notebook or sixel terminal)"""
 	if not __notebookP():
 		for x in images:
 			write("-", x)
@@ -117,7 +131,7 @@ def gallery(images):
 	for x in images:
 		h = max(h, x.shape[0])
 		j = __img_tag_with_b64jpg(x)
-		L = f'{L}<li><a href="#">{i}<span>{j}</span></a></li>'
+		L = f'{L}<li><a href="#">{i}<span>{j}</span></a>'
 		i = i + 1
 
 	html = f"""
@@ -175,7 +189,7 @@ def gallery(images):
 	display(HTML( css ))
 
 
-
-version = 7
+# API
+version = 8
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
