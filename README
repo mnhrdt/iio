@@ -54,6 +54,34 @@ Reading from the image "-" is equivalent to reading from standard input.
 Writing into the image "-" is equivalent to writing to standard output.
 
 
+2.1. OTHER LANGUAGES
+
+The bindings for other languages strive to be the most natural possible.
+Sometimes the numbers are force converted to floats.
+
+# octave
+x = iio_read('lena.png')
+iio_write('neg_lena.png', 255-x)
+
+-- luajit
+x = iio_read("lena.png")  -- x has fields .w .h .pd .x
+iio_write("lena.png", x)
+
+-- lua
+local iio = require("imgiio")
+x = iio.read("lena.png") -- x has the same fields, and is callable as x(i,j)
+iio.write("lena.png", x)
+
+# python
+import iio
+x = iio.read("lena.png")          # x is a numpy array
+iio.write("neg_lena.png", 255-x)
+
+# jupyter notebooks and sixel-terminals
+iio.display(x)
+iio.gallery([x, y, z])
+
+
 
 3. ADVANCED USAGE
 -----------------
