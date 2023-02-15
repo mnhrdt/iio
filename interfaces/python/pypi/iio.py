@@ -86,11 +86,26 @@ def __notebookP():
 	except NameError:
 		return False
 
+# internal function to do some notebook magic (only for gray images, by now)
+def __heuristic_reshape(s):
+	try:
+		w = get_ipython().all_ns_refs[0]['w']
+		h = get_ipython().all_ns_refs[0]['h']
+		if s[0] == w*h:
+			return (h,w)
+		else:
+			return s
+	except (NameError, KeyError):
+		return s
 
 # internal function to urlencode a numpy array into html
 def __img_tag_with_b64jpg(x):
 	if (x.shape[0] > 4000):
-		return f'<b>cannot display image of size {x.shape}</b>'
+		s = __heuristic_reshape(x.shape)
+		if s == x.shape:
+			return f'<b>cannot display image of size {x.shape}</b>'
+		else:
+			x = x.reshape(s)
 
 	from tempfile import NamedTemporaryFile
 	from base64 import b64encode
@@ -129,7 +144,8 @@ def gallery(images):
 	h = 0   # height of the gallery (height of the tallest image)
 	i = 0   # loop counter
 	for x in images:
-		h = max(h, x.shape[0])
+		s = __heuristic_reshape(x.shape)
+		h = max(h, s[0])
 		j = __img_tag_with_b64jpg(x)
 		L = f'{L}<li><a href="#">{i}<span>{j}</span></a>'
 		i = i + 1
@@ -190,6 +206,6 @@ def gallery(images):
 
 
 # API
-version = 8
+version = 9
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
