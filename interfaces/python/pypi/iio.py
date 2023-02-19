@@ -129,6 +129,15 @@ def display(x):
 	display(HTML(__img_tag_with_b64jpg(x)))
 
 
+# internal function to get the variable names of the "gallery" function
+def __upnames():
+	import inspect
+	f = inspect.currentframe().f_back.f_back     # frame of caller's caller
+	s = inspect.getframeinfo(f).code_context[0]  # extract call string
+	z = s.replace('[',',').replace(']',',').split(',')[1:-1] # parse to args
+	return z
+
+
 # API
 def gallery(images):
 	"""Display an array of images inline (notebook or sixel terminal)"""
@@ -137,6 +146,7 @@ def gallery(images):
 			write("-", x)
 		return
 
+	n = __upnames()
 
 	from  IPython.display import display, HTML
 
@@ -147,7 +157,11 @@ def gallery(images):
 		s = __heuristic_reshape(x.shape)
 		h = max(h, s[0])
 		j = __img_tag_with_b64jpg(x)
-		L = f'{L}<li><a href="#">{i}<span>{j}</span></a>'
+		if len(n) == len(images):
+			s = n[i]
+		else:
+			s = f"a{i}"
+		L = f'{L}<li><a href="#">{s}<span>{j}</span></a>'
 		i = i + 1
 
 	html = f"""
@@ -178,7 +192,7 @@ def gallery(images):
 		background-color: #EEEEEE;
 		border: 1px solid #FFFFFF;
 		text-decoration: none;
-		width: 1.9em;
+		width: 4.9em;
 		padding: 6px; }}
 	.gallery2 .index a span {{ /* gallery2 item content */
 		display: block;
@@ -191,12 +205,12 @@ def gallery(images):
 		}}
 	.gallery2 .index li:first-child a span {{
 		top: 0em;
-		left: 4.5em;
+		left: 7.5em;
 		z-index: 99; }}
 	.gallery2 .index a:hover {{
 		border: 1px solid #888888; }}
 	.gallery2 .index a:hover span {{
-		left: 4.5em;
+		left: 7.5em;
 		z-index: 100; }}
 	</style>
 	"""
@@ -206,6 +220,6 @@ def gallery(images):
 
 
 # API
-version = 9
+version = 10
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
