@@ -20,7 +20,7 @@ def __setup_functions():
 	global __libc_free
 	global __iio_read
 	global __iio_write
-	if (__libc_free != 0): return
+	if __libc_free != 0: return
 
 	from os.path import abspath, dirname
 	from ctypes import CDLL, POINTER, c_float, c_int, c_char_p, c_void_p
@@ -131,12 +131,13 @@ def display(x):
 
 # internal function to get the variable names of the "gallery" function
 def __upnames():
-	import inspect
-	f = inspect.currentframe().f_back.f_back     # frame of caller's caller
-	s = inspect.getframeinfo(f).code_context[0]  # extract call string
-	z = s.replace('[',',').replace(']',',').split(',')[1:-1] # parse to args
+	from inspect import currentframe, getframeinfo
+	import re
+	f = currentframe().f_back.f_back        # frame of caller's caller
+	s = getframeinfo(f).code_context[0]     # extract call string
+	t = s.split('[',1)[-1].split(']',1)[0]  # get contents of call list
+	z = re.split(r',\s*(?![^()]*\))', t)    # split at non-bracket commas
 	return z
-
 
 # API
 def gallery(images):
@@ -146,22 +147,16 @@ def gallery(images):
 			write("-", x)
 		return
 
-	n = __upnames()
-
-	from  IPython.display import display, HTML
-
-	L = ""  # html list of gallery items
-	h = 0   # height of the gallery (height of the tallest image)
-	i = 0   # loop counter
+	n = __upnames()  # list of variable names upon call
+	L = ""           # html list of gallery items
+	h = 0            # height of the gallery (height of the tallest image)
+	i = 0            # loop counter
 	for x in images:
-		s = __heuristic_reshape(x.shape)
-		h = max(h, s[0])
+		z = __heuristic_reshape(x.shape)
+		h = max(h, z[0])
 		j = __img_tag_with_b64jpg(x)
-		if len(n) == len(images):
-			s = n[i]
-		else:
-			s = f"a{i}"
-		L = f'{L}<li><a href="#">{s}<span>{j}</span></a>'
+		s = n[i] if len(n) == len(images) else f"{i}"
+		L = f'{L}<li><a href="#">{s}<span>{j}</span></a>\n'
 		i = i + 1
 
 	html = f"""
@@ -180,8 +175,9 @@ def gallery(images):
 		height: {h+20}px; }}    /* <- here is the f-format */
 	.gallery2 .index {{
 		padding: 0;
+		padding-left: 0;
 		margin: 0;
-		width: 4.5em;
+		width: 7.5em;
 		list-style: none; }}
 	.gallery2 .index li {{
 		margin: 0;
@@ -192,7 +188,7 @@ def gallery(images):
 		background-color: #EEEEEE;
 		border: 1px solid #FFFFFF;
 		text-decoration: none;
-		width: 4.9em;
+		width: 7.5em;
 		padding: 6px; }}
 	.gallery2 .index a span {{ /* gallery2 item content */
 		display: block;
@@ -215,11 +211,16 @@ def gallery(images):
 	</style>
 	"""
 
+	html = html.replace("gallery2", f"gallery{h}")
+	css  = css .replace("gallery2", f"gallery{h}")
+	# TODO: widen the gallery legend so that the longest item name fits
+
+	from  IPython.display import display, HTML
 	display(HTML( html ))
-	display(HTML( css ))
+	display(HTML( css  ))
 
 
 # API
-version = 10
+version = 11
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
