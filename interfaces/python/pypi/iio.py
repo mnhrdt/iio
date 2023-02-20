@@ -105,7 +105,7 @@ def __img_tag_with_b64jpg(x):
 		if s == x.shape:
 			return f'<b>cannot display image of size {x.shape}</b>'
 		else:
-			x = x.reshape(s)
+			x = x.reshape(*s,-1)
 
 	from tempfile import NamedTemporaryFile
 	from base64 import b64encode
@@ -177,7 +177,7 @@ def gallery(images):
 		padding: 0;
 		padding-left: 0;
 		margin: 0;
-		width: 7.5em;
+		width: 12.5em;
 		list-style: none; }}
 	.gallery2 .index li {{
 		margin: 0;
@@ -188,7 +188,7 @@ def gallery(images):
 		background-color: #EEEEEE;
 		border: 1px solid #FFFFFF;
 		text-decoration: none;
-		width: 7.5em;
+		width: 12.5em;
 		padding: 6px; }}
 	.gallery2 .index a span {{ /* gallery2 item content */
 		display: block;
@@ -201,12 +201,12 @@ def gallery(images):
 		}}
 	.gallery2 .index li:first-child a span {{
 		top: 0em;
-		left: 7.5em;
+		left: 12.5em;
 		z-index: 99; }}
 	.gallery2 .index a:hover {{
 		border: 1px solid #888888; }}
 	.gallery2 .index a:hover span {{
-		left: 7.5em;
+		left: 12.5em;
 		z-index: 100; }}
 	</style>
 	"""
@@ -221,6 +221,6 @@ def gallery(images):
 
 
 # API
-version = 11
+version = 12
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
