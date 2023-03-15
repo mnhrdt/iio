@@ -37,6 +37,7 @@
 #define I_CAN_HAS_LIBTIFF
 //#define I_CAN_HAS_LIBWEBP
 //#define I_CAN_HAS_LIBHEIF
+//#define I_CAN_HAS_LIBAVIF
 //#define I_CAN_HAS_LIBHDF5
 //#define I_CAN_HAS_LIBEXR
 
@@ -107,6 +108,11 @@
 #undef I_CAN_HAS_LIBHEIF
 #endif
 
+#ifdef IIO_DISABLE_LIBAVIF
+#undef I_CAN_HAS_LIBAVIF
+#endif
+
+
 #ifdef IIO_DISABLE_IMGLIBS
 #undef I_CAN_HAS_LIBPNG
 #undef I_CAN_HAS_LIBJPEG
@@ -114,6 +120,7 @@
 #undef I_CAN_HAS_LIBEXR
 #undef I_CAN_HAS_LIBHDF5
 #undef I_CAN_HAS_LIBWEBP
+#undef I_CAN_HAS_LIBAVIF
 #undef I_CAN_HAS_LIBHEIF
 #endif
 
@@ -188,6 +195,7 @@
 #define IIO_FORMAT_RAT 37
 #define IIO_FORMAT_WEBP 38
 #define IIO_FORMAT_HEIF 39
+#define IIO_FORMAT_AVIF 40
 #define IIO_FORMAT_UNRECOGNIZED (-1)
 
 //
@@ -671,7 +679,7 @@ static const char *iio_strfmt(int format)
 	M(PCX); M(GIF); M(XPM); M(RAFA); M(FLO); M(LUM); M(JUV);
 	M(PCM); M(ASC); M(RAW); M(RWA); M(PDS); M(CSV); M(VRT); M(RAT);
 	M(FFD); M(DLM); M(NPY); M(VIC); M(CCS); M(FIT); M(HDF5);
-	M(TXT); M(WEBP); M(HEIF);
+	M(TXT); M(WEBP); M(HEIF); M(AVIF);
 	M(UNRECOGNIZED);
 	default: fail("caca de la grossa (%d)", format);
 	}
@@ -2150,6 +2158,48 @@ static int read_beheaded_webp(struct iio_image *x,
 	return 0;
 }
 #endif//I_CAN_HAS_LIBWEBP
+
+// AVIF reader                                                              {{{2
+#ifdef I_CAN_HAS_LIBAVIF
+#include <avif/avif.h>
+static int read_beheaded_avif(struct iio_image *x,
+		FILE *f, char *header, int nheader)
+{
+	// inspired by the example on libavif avif_example_decode_memory.c
+	//
+
+	long filesize;
+	void *filedata = load_rest_of_file(&filesize, f, header, nheader);
+	if (!filedata) return 1;
+
+	avifRGBImage rgb;
+	memset(&rgb, 0, sizeof rgb);
+	avifDecoder *decoder = avifDecoderCreate();
+
+	avifResult r = avifDecoderSetIOMemory(decoder, filedata, filesize);
+	if (r != AVIF_RESULT_OK)
+		fail("cannot set IO on avif (%s)", avifResultToString(r));
+	r = avifDecoderParse(decoder);
+	if (r != AVIF_RESULT_OK)
+		fail("cannot decode avif image (%s)", avifResultToString(r));
+	avifRGBImageSetDefaults(&rgb, decoder->image);
+	avifRGBImageAllocatePixels(&rgb);
+	r = avifImageYUVToRGB(decoder->image, &rgb);
+	if (r != AVIF_RESULT_OK)
+		fail("cannot YUV_to_RGB avif (%s)", avifResultToString(r));
+
+	int w = decoder->image->width;
+	int h = decoder->image->height;
+	int typ = rgb.depth > 8 ? IIO_TYPE_UINT16 : IIO_TYPE_UINT8;
+	iio_image_init2d(x, w, h, 4, typ);
+	memcpy(x->data, rgb.pixels, iio_image_data_size(x));
+
+	avifRGBImageFreePixels(&rgb);
+	avifDecoderDestroy(decoder);
+	xfree(filedata);
+	return 0;
+}
+#endif//I_CAN_HAS_LIBAVIF
 
 // HEIF reader                                                              {{{2
 #ifdef I_CAN_HAS_LIBHEIF
@@ -4851,6 +4901,14 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 		return IIO_FORMAT_HEIF;
 #endif//I_CAN_HAS_LIBHEIF
 
+#ifdef I_CAN_HAS_LIBAVIF
+	// note: same as above, as AVIF uses a HEIF container
+	// TODO: clarify the build situation here
+	if (b[0]=='f' && b[1]=='t' && b[2]=='y' && b[3]=='p')
+		return IIO_FORMAT_AVIF;
+#endif//I_CAN_HAS_LIBAVIF
+
+
 	if (b[0]=='L' && b[1]=='B' && b[2]=='L' && b[3]=='S' &&
 			b[4]=='I' && b[5]=='Z' && b[6]=='E' && b[7]=='=')
 		return IIO_FORMAT_VIC; // VICAR (a streamlined PDS variant)
@@ -5108,6 +5166,10 @@ int read_beheaded_image(struct iio_image *x, FILE *f, char *h, int hn, int fmt)
 
 #ifdef I_CAN_HAS_LIBWEBP
 	case IIO_FORMAT_WEBP:   return read_beheaded_webp (x, f, h, hn);
+#endif
+
+#ifdef I_CAN_HAS_LIBAVIF
+	case IIO_FORMAT_AVIF:   return read_beheaded_avif (x, f, h, hn);
 #endif
 
 #ifdef I_CAN_HAS_LIBHEIF
