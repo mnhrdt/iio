@@ -86,11 +86,21 @@ def __notebookP():
 	except NameError:
 		return False
 
+# internal function to find a variable up the call stack
+def __upvar(s):
+	import inspect
+	f = inspect.currentframe().f_back
+	while hasattr(f, 'f_back'):
+		if s in f.f_locals:
+			return f.f_locals[s]
+		f = f.f_back
+	return None
+
 # internal function to do some notebook magic (only for gray images, by now)
 def __heuristic_reshape(s):
 	try:
-		w = get_ipython().all_ns_refs[0]['w']
-		h = get_ipython().all_ns_refs[0]['h']
+		w = __upvar("w")
+		h = __upvar("h")
 		if s[0] == w*h:
 			return (h,w)
 		else:
@@ -221,6 +231,6 @@ def gallery(images):
 
 
 # API
-version = 12
+version = 13
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
