@@ -425,9 +425,9 @@ static void xfclose(FILE *f)
 {
 	global_variable_containing_the_name_of_the_last_opened_file = NULL;
 	if (f != stdout && f != stdin && f != stderr) {
+		IIO_DEBUG("fclose (%p)", (void*)f);
 		int r = fclose(f);
-		IIO_DEBUG("fclose (%p) = %d\n", (void*)f, r);
-		if (r) fail("fclose error");// \"%s\"", strerror(errno));
+		if (r) fail("fclose error (%d)", r);//\"%s\"",strerror(errno));
 	}
 }
 
