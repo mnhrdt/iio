@@ -159,11 +159,11 @@ def gallery(images):
 
 	n = __upnames()  # list of variable names upon call
 	L = ""           # html list of gallery items
-	h = 0            # height of the gallery (height of the tallest image)
+	H = 0            # height of the gallery (height of the tallest image)
 	i = 0            # loop counter
 	for x in images:
 		z = __heuristic_reshape(x.shape)
-		h = max(h, z[0])
+		H = max(H, z[0])
 		j = __img_tag_with_b64jpg(x)
 		s = n[i] if len(n) == len(images) else f"{i}"
 		L = f'{L}<li><a href="#">{s}<span>{j}</span></a>\n'
@@ -182,7 +182,7 @@ def gallery(images):
 	.gallery2 {{
 		position: relative;
 		width: auto;
-		height: {h+20}px; }}    /* <- here is the f-format */
+		height: {H+20}px; }}    /* <- here is the f-format */
 	.gallery2 .index {{
 		padding: 0;
 		padding-left: 0;
@@ -221,8 +221,8 @@ def gallery(images):
 	</style>
 	"""
 
-	html = html.replace("gallery2", f"gallery{h}")
-	css  = css .replace("gallery2", f"gallery{h}")
+	html = html.replace("gallery2", f"gallery{H}")
+	css  = css .replace("gallery2", f"gallery{H}")
 	# TODO: widen the gallery legend so that the longest item name fits
 
 	from  IPython.display import display, HTML
@@ -231,6 +231,6 @@ def gallery(images):
 
 
 # API
-version = 13
+version = 14
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
