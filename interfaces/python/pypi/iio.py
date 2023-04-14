@@ -105,7 +105,7 @@ def __heuristic_reshape(s):
 			return (h,w)
 		else:
 			return s
-	except (NameError, KeyError):
+	except (NameError, KeyError, TypeError):
 		return s
 
 # internal function to urlencode a numpy array into html
