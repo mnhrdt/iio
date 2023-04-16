@@ -230,7 +230,7 @@
 #ifdef I_CAN_HAS_LIBPNG
 // ugly "feature" in png.h forces this header to be included here
 #  include <png.h>
-#endif
+#endif//I_CAN_HAS_LIBPNG
 
 // portabil
 
@@ -3881,7 +3881,7 @@ static int read_beheaded_whatever(struct iio_image *x,
 
 	return r;
 }
-#endif
+#endif//I_CAN_HAS_WHATEVER
 
 
 // RAW PHOTO reader                                                               {{{2
