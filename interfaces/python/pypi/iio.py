@@ -86,16 +86,26 @@ def __notebookP():
 	except NameError:
 		return False
 
+# internal function to find a variable up the call stack
+def __upvar(s):
+	import inspect
+	f = inspect.currentframe().f_back
+	while hasattr(f, 'f_back'):
+		if s in f.f_locals:
+			return f.f_locals[s]
+		f = f.f_back
+	return None
+
 # internal function to do some notebook magic (only for gray images, by now)
 def __heuristic_reshape(s):
 	try:
-		w = get_ipython().all_ns_refs[0]['w']
-		h = get_ipython().all_ns_refs[0]['h']
+		w = __upvar("w")
+		h = __upvar("h")
 		if s[0] == w*h:
 			return (h,w)
 		else:
 			return s
-	except (NameError, KeyError):
+	except (NameError, KeyError, TypeError):
 		return s
 
 # internal function to urlencode a numpy array into html
@@ -149,11 +159,11 @@ def gallery(images):
 
 	n = __upnames()  # list of variable names upon call
 	L = ""           # html list of gallery items
-	h = 0            # height of the gallery (height of the tallest image)
+	H = 0            # height of the gallery (height of the tallest image)
 	i = 0            # loop counter
 	for x in images:
 		z = __heuristic_reshape(x.shape)
-		h = max(h, z[0])
+		H = max(H, z[0])
 		j = __img_tag_with_b64jpg(x)
 		s = n[i] if len(n) == len(images) else f"{i}"
 		L = f'{L}<li><a href="#">{s}<span>{j}</span></a>\n'
@@ -172,7 +182,7 @@ def gallery(images):
 	.gallery2 {{
 		position: relative;
 		width: auto;
-		height: {h+20}px; }}    /* <- here is the f-format */
+		height: {H+20}px; }}    /* <- here is the f-format */
 	.gallery2 .index {{
 		padding: 0;
 		padding-left: 0;
@@ -211,8 +221,8 @@ def gallery(images):
 	</style>
 	"""
 
-	html = html.replace("gallery2", f"gallery{h}")
-	css  = css .replace("gallery2", f"gallery{h}")
+	html = html.replace("gallery2", f"gallery{H}")
+	css  = css .replace("gallery2", f"gallery{H}")
 	# TODO: widen the gallery legend so that the longest item name fits
 
 	from  IPython.display import display, HTML
@@ -221,6 +231,6 @@ def gallery(images):
 
 
 # API
-version = 12
+version = 14
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]

@@ -1,0 +1,7 @@
+LDLIBS = -ljpeg -lpng -ltiff -lwebp -lheif -lIlmImf
+CPPFLAGS = -DI_CAN_HAS_WEBP -DI_CAN_HAS_HEIF -DI_CAN_HAS_EXR
+
+LDLIBS += `pkg-config hdf5 --libs 2>/dev/null || echo -lhdf5`
+CPPFLAGS += -DI_CAN_HAS_LIBHDF5 `pkg-config hdf5 --cflags 2>/dev/null`
+
+include rules.mk
