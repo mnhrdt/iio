@@ -3848,7 +3848,7 @@ static void trans_pipe(struct iio_image *x, const char *p)
 
 	iio_write_image_default(i, x);
 
-	fprintf(stderr, "IIO_TRANS: running pipe \"%s\"\n", p);
+	IIO_DEBUG("IIO_TRANS: running pipe \"%s\"\n", p);
 	if (!system(c))
 	{
 		// the monkey flies between two branches

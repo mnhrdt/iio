@@ -231,6 +231,6 @@ def gallery(images):
 
 
 # API
-version = 14
+version = 16
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
