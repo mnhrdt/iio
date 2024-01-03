@@ -425,9 +425,11 @@ static void xfclose(FILE *f)
 {
 	global_variable_containing_the_name_of_the_last_opened_file = NULL;
 	if (f != stdout && f != stdin && f != stderr) {
-		IIO_DEBUG("fclose (%p)", (void*)f);
 		int r = fclose(f);
-		if (r) fail("fclose error (%d)", r);//\"%s\"",strerror(errno));
+		// cripple the following line to remove a wrong gcc Warning
+		//IIO_DEBUG("fclose (%p) = %d\n", (void*)f, r);
+		IIO_DEBUG("fclose (%p) = %d\n", (void*)0, r);
+		if (r) fail("fclose error");// \"%s\"", strerror(errno));
 	}
 }
 
@@ -1423,11 +1425,11 @@ recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
 }
 
 
-//static void break_pixels_uint8(uint8_t *broken, uint8_t *clear, int n, int pd)
-//{
-//	FORI(n) FORL(pd)
-//		broken[n*l + i] = clear[pd*i + l];
-//}
+static void break_pixels_uint8(uint8_t *broken, uint8_t *clear, int n, int pd)
+{
+	FORI(n) FORL(pd)
+		broken[n*l + i] = clear[pd*i + l];
+}
 
 static void break_pixels_double(double *broken, double *clear, int n, int pd)
 {
@@ -1676,6 +1678,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	int r = 0, fmt_iio=-1;
 	r += TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
 	IIO_DEBUG("tiff get field width %d (r=%d)\n", (int)w, r);
+	IIO_DEBUG("w = %d\n", (int)w);
 	r += TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
 	IIO_DEBUG("tiff get field length %d (r=%d)\n", (int)h, r);
 	if (r != 2) fail("can not read tiff of unknown size");
@@ -1863,6 +1866,7 @@ go_on:
 		if (broken && bps < 8) fail("cannot unpack broken scanlines");
 		if (!broken) FORI(h) {
 			r = TIFFReadScanline(tif, buf, i, 0);
+			IIO_DEBUG("TIFFReadScanline r = %d\n", r);
 			if (r < 0) fail("error read tiff row %d/%d", i, (int)h);
 
 			if (bps < 8) {
@@ -4199,7 +4203,7 @@ static void iio_write_image_as_pfm(const char *filename, struct iio_image *x)
 }
 
 // PPM writer                                                               {{{2
-static void iio_write_image_as_ppm(const char *filename, struct iio_image *x)
+static void iio_write_image_as_ppm_fl(const char *filename, struct iio_image *x)
 {
 	assert(x->type == IIO_TYPE_FLOAT);
 	assert(x->dimension == 2);
@@ -4217,6 +4221,35 @@ static void iio_write_image_as_ppm(const char *filename, struct iio_image *x)
 	for (int i = 0; i < w*h*pd; i++)
 		fprintf(f, "%d\n", (int) t[i]);
 	xfclose(f);
+}
+
+static void iio_write_image_as_ppm_u8(const char *filename, struct iio_image *x)
+{
+	assert(x->type == IIO_TYPE_UINT8);
+	assert(x->dimension == 2);
+	assert(x->pixel_dimension == 1 || x->pixel_dimension == 3);
+	FILE *f = xfopen(filename, "w");
+	int dimchar = 1 < x->pixel_dimension ? '3' : '2';
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	int pd = x->pixel_dimension;
+	uint8_t *t = (uint8_t*) x->data;
+	float scale = 255;
+	fprintf(f, "P%c\n", dimchar);
+	if (x->rem) fprintf(f, "# %s\n", x->rem);
+	fprintf(f, "%d %d\n%g\n", w, h, scale);
+	for (int i = 0; i < w*h*pd; i++)
+		fprintf(f, "%d\n", (unsigned int) t[i]);
+	xfclose(f);
+}
+
+// TODO: be more general here, and add all the types
+static void iio_write_image_as_ppm(const char *filename, struct iio_image *x)
+{
+	if (x->type == IIO_TYPE_FLOAT)
+		iio_write_image_as_ppm_fl(filename, x);
+	if (x->type == IIO_TYPE_UINT8)
+		iio_write_image_as_ppm_u8(filename, x);
 }
 
 // ASC writer                                                               {{{2
@@ -5485,6 +5518,17 @@ uint8_t *iio_read_image_uint8_vec(const char *fname, int *w, int *h, int *pd)
 }
 
 // API 2D
+uint8_t *iio_read_image_uint8_split(const char *fname, int *w, int *h, int *pd)
+{
+	uint8_t *r = iio_read_image_uint8_vec(fname, w, h, pd);
+	if (!r) return rfail("could not read image");
+	uint8_t *rbroken = xmalloc(*w**h**pd*sizeof*rbroken);
+	break_pixels_uint8(rbroken, r, *w**h, *pd);
+	xfree(r);
+	return rbroken;
+}
+
+// API 2D
 uint16_t *iio_read_image_uint16_vec(const char *fname, int *w, int *h, int *pd)
 {
 	struct iio_image x[1];
@@ -5858,12 +5902,14 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		iio_write_image_as_flo(filename, x);
 		return;
 	}
-	if (string_suffix(filename, ".ppm") && typ == IIO_TYPE_FLOAT
+	if (string_suffix(filename, ".ppm")
+		&& (typ == IIO_TYPE_FLOAT || typ == IIO_TYPE_UINT8)
 		&& (x->pixel_dimension == 1 || x->pixel_dimension == 3)) {
 		iio_write_image_as_ppm(filename, x);
 		return;
 	}
-	if (string_suffix(filename, ".pgm") && typ == IIO_TYPE_FLOAT
+	if (string_suffix(filename, ".pgm")
+		&& (typ == IIO_TYPE_FLOAT || typ == IIO_TYPE_UINT8)
 		&& (x->pixel_dimension == 1 || x->pixel_dimension == 3)) {
 		iio_write_image_as_ppm(filename, x);
 		return;
