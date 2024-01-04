@@ -425,9 +425,11 @@ static void xfclose(FILE *f)
 {
 	global_variable_containing_the_name_of_the_last_opened_file = NULL;
 	if (f != stdout && f != stdin && f != stderr) {
-		IIO_DEBUG("fclose (%p)", (void*)f);
 		int r = fclose(f);
-		if (r) fail("fclose error (%d)", r);//\"%s\"",strerror(errno));
+		// cripple the following line to remove a wrong gcc Warning
+		//IIO_DEBUG("fclose (%p) = %d\n", (void*)f, r);
+		IIO_DEBUG("fclose (%p) = %d\n", (void*)0, r);
+		if (r) fail("fclose error");// \"%s\"", strerror(errno));
 	}
 }
 
@@ -1423,11 +1425,11 @@ recover_broken_pixels_float(float *clear, float *broken, int n, int pd)
 }
 
 
-//static void break_pixels_uint8(uint8_t *broken, uint8_t *clear, int n, int pd)
-//{
-//	FORI(n) FORL(pd)
-//		broken[n*l + i] = clear[pd*i + l];
-//}
+static void break_pixels_uint8(uint8_t *broken, uint8_t *clear, int n, int pd)
+{
+	FORI(n) FORL(pd)
+		broken[n*l + i] = clear[pd*i + l];
+}
 
 static void break_pixels_double(double *broken, double *clear, int n, int pd)
 {
@@ -1676,6 +1678,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	int r = 0, fmt_iio=-1;
 	r += TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
 	IIO_DEBUG("tiff get field width %d (r=%d)\n", (int)w, r);
+	IIO_DEBUG("w = %d\n", (int)w);
 	r += TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
 	IIO_DEBUG("tiff get field length %d (r=%d)\n", (int)h, r);
 	if (r != 2) fail("can not read tiff of unknown size");
@@ -1698,6 +1701,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	IIO_DEBUG("rps %d (r=%d)\n", rps, r);
 
 	IIO_DEBUG("fmt  = %d\n", fmt);
+	IIO_DEBUG("w = %d\n", (int)w);
 
 	// deal with complex issues
 	bool complicated = false; // complicated = complex and broken
@@ -1746,18 +1750,37 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 	bool broken = planarity == PLANARCONFIG_SEPARATE;
 	complicated = complicated && broken; // complicated = complex and broken
 
+	uint16_t compression;
+	r = TIFFGetField(tif, TIFFTAG_COMPRESSION, &compression);
+	if (r != 1) compression = 1; // 1 == no compression
+	IIO_DEBUG("TIFF Tag Compression = %d\n", compression);
+	IIO_DEBUG("w = %d\n", (int)w);
+
+	uint32_t rows_per_strip;
+	r = TIFFGetField(tif, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
+	IIO_DEBUG("r = %d\n", (int)r);
+	IIO_DEBUG("w = %d\n", (int)w);
+	if (r != 1) rows_per_strip = 0;
+	IIO_DEBUG("TIFF Tag Rows Per Strip = %d\n", rows_per_strip);
+	IIO_DEBUG("w = %d\n", (int)w);
+
 
 	// acquire memory block
-	uint32_t scanline_size = (w * spp * bps)/8;
+	uint32_t scanline_size = (w * (int)spp * (int)bps)/8;
 	int rbps = (bps/8) ? (bps/8) : 1;
-	uint32_t uscanline_size = w * spp * rbps;
+	uint32_t uscanline_size = w * (int)spp * (int)rbps;
+	IIO_DEBUG("w = %d\n", (int)w);
 	IIO_DEBUG("bps = %d\n", (int)bps);
 	IIO_DEBUG("spp = %d\n", (int)spp);
+	IIO_DEBUG("rbps = %d\n", (int)rbps);
 	IIO_DEBUG("sls = %d\n", (int)scanline_size);
 	IIO_DEBUG("uss = %d\n", (int)uscanline_size);
 	int sls = TIFFScanlineSize(tif);
 	IIO_DEBUG("sls(r) = %d\n", (int)sls);
 	IIO_DEBUG("planarity = %d (%s)\n", r, broken?"broken":"normal");
+
+	if (xgetenv("IIO_OVERRIDE_SLS"))
+		scanline_size = sls;
 
 	if ((int)scanline_size != sls)
 	{
@@ -1843,6 +1866,7 @@ go_on:
 		if (broken && bps < 8) fail("cannot unpack broken scanlines");
 		if (!broken) FORI(h) {
 			r = TIFFReadScanline(tif, buf, i, 0);
+			IIO_DEBUG("TIFFReadScanline r = %d\n", r);
 			if (r < 0) fail("error read tiff row %d/%d", i, (int)h);
 
 			if (bps < 8) {
@@ -1856,12 +1880,14 @@ go_on:
 		}
 		else {
 			int f = complicated ? 2 : 1; // bizarre case, squeeze!
-			FORI(h)
+			if (compression==1) FORI(h)
 			{
 				unsigned char *dest = data + i*spp*sls/f;
 				FORJ(spp/f)
 				{
 					r = TIFFReadScanline(tif, buf, i, j);
+					IIO_DEBUG("TIFFReadScanline (%d,%d) "
+						       "=> %d\n", i, j, r);
 					if (r < 0)
 						fail("tiff bad %d/%d;%d (%d)",
 								i, (int)h, j,f);
@@ -1870,6 +1896,9 @@ go_on:
 				if (!complicated)
 					repair_broken_pixels_inplace(dest,
 							w, spp, bps/8);
+			} else { // compression > 1
+				unsigned char *dest = data;
+				fail("shit not implemented yet");
 			}
 		}
 	}
@@ -3848,7 +3877,7 @@ static void trans_pipe(struct iio_image *x, const char *p)
 
 	iio_write_image_default(i, x);
 
-	fprintf(stderr, "IIO_TRANS: running pipe \"%s\"\n", p);
+	IIO_DEBUG("IIO_TRANS: running pipe \"%s\"\n", p);
 	if (!system(c))
 	{
 		// the monkey flies between two branches
@@ -4174,7 +4203,7 @@ static void iio_write_image_as_pfm(const char *filename, struct iio_image *x)
 }
 
 // PPM writer                                                               {{{2
-static void iio_write_image_as_ppm(const char *filename, struct iio_image *x)
+static void iio_write_image_as_ppm_fl(const char *filename, struct iio_image *x)
 {
 	assert(x->type == IIO_TYPE_FLOAT);
 	assert(x->dimension == 2);
@@ -4192,6 +4221,35 @@ static void iio_write_image_as_ppm(const char *filename, struct iio_image *x)
 	for (int i = 0; i < w*h*pd; i++)
 		fprintf(f, "%d\n", (int) t[i]);
 	xfclose(f);
+}
+
+static void iio_write_image_as_ppm_u8(const char *filename, struct iio_image *x)
+{
+	assert(x->type == IIO_TYPE_UINT8);
+	assert(x->dimension == 2);
+	assert(x->pixel_dimension == 1 || x->pixel_dimension == 3);
+	FILE *f = xfopen(filename, "w");
+	int dimchar = 1 < x->pixel_dimension ? '3' : '2';
+	int w = x->sizes[0];
+	int h = x->sizes[1];
+	int pd = x->pixel_dimension;
+	uint8_t *t = (uint8_t*) x->data;
+	float scale = 255;
+	fprintf(f, "P%c\n", dimchar);
+	if (x->rem) fprintf(f, "# %s\n", x->rem);
+	fprintf(f, "%d %d\n%g\n", w, h, scale);
+	for (int i = 0; i < w*h*pd; i++)
+		fprintf(f, "%d\n", (unsigned int) t[i]);
+	xfclose(f);
+}
+
+// TODO: be more general here, and add all the types
+static void iio_write_image_as_ppm(const char *filename, struct iio_image *x)
+{
+	if (x->type == IIO_TYPE_FLOAT)
+		iio_write_image_as_ppm_fl(filename, x);
+	if (x->type == IIO_TYPE_UINT8)
+		iio_write_image_as_ppm_u8(filename, x);
 }
 
 // ASC writer                                                               {{{2
@@ -5265,9 +5323,9 @@ static int read_image(struct iio_image *x, const char *fname)
 		int s[2], pd = 1;
 		if (3 == sscanf(fname+9, "%g:%dx%d", &value, s, s+1));
 		else fail("bad semantical name \"%s\"", fname);
-		iio_image_build_independent(x, 2, s, IIO_TYPE_CHAR, pd);
+		iio_image_build_independent(x, 2, s, IIO_TYPE_FLOAT, pd);
 		for (int i = 0; i < *s*s[1]*pd; i++)
-			((char*)x->data)[i] = value;
+			((float*)x->data)[i] = value;
 		return 0;
 	}
 
@@ -5457,6 +5515,17 @@ uint8_t *iio_read_image_uint8_vec(const char *fname, int *w, int *h, int *pd)
 	*pd = x->pixel_dimension;
 	iio_convert_samples(x, IIO_TYPE_UINT8);
 	return x->data;
+}
+
+// API 2D
+uint8_t *iio_read_image_uint8_split(const char *fname, int *w, int *h, int *pd)
+{
+	uint8_t *r = iio_read_image_uint8_vec(fname, w, h, pd);
+	if (!r) return rfail("could not read image");
+	uint8_t *rbroken = xmalloc(*w**h**pd*sizeof*rbroken);
+	break_pixels_uint8(rbroken, r, *w**h, *pd);
+	xfree(r);
+	return rbroken;
 }
 
 // API 2D
@@ -5833,12 +5902,14 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		iio_write_image_as_flo(filename, x);
 		return;
 	}
-	if (string_suffix(filename, ".ppm") && typ == IIO_TYPE_FLOAT
+	if (string_suffix(filename, ".ppm")
+		&& (typ == IIO_TYPE_FLOAT || typ == IIO_TYPE_UINT8)
 		&& (x->pixel_dimension == 1 || x->pixel_dimension == 3)) {
 		iio_write_image_as_ppm(filename, x);
 		return;
 	}
-	if (string_suffix(filename, ".pgm") && typ == IIO_TYPE_FLOAT
+	if (string_suffix(filename, ".pgm")
+		&& (typ == IIO_TYPE_FLOAT || typ == IIO_TYPE_UINT8)
 		&& (x->pixel_dimension == 1 || x->pixel_dimension == 3)) {
 		iio_write_image_as_ppm(filename, x);
 		return;
