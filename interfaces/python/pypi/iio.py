@@ -109,7 +109,7 @@ def __heuristic_reshape(s):
 		return s
 
 # internal function to urlencode a numpy array into html
-def __img_tag_with_b64jpg(x):
+def __img_tag_with_b64(x):
 	if (x.shape[0] > 4000):
 		s = __heuristic_reshape(x.shape)
 		if s == x.shape:
@@ -120,12 +120,14 @@ def __img_tag_with_b64jpg(x):
 	from tempfile import NamedTemporaryFile
 	from base64 import b64encode
 	from os import unlink
+	from numpy import unique
 
-	f = NamedTemporaryFile(prefix="iioshow_", suffix=".jpg", delete=False)
+	t = "jpeg" if len(unique(x)) > 4 else "png"
+	f = NamedTemporaryFile(prefix="iioshow_", suffix=f".{t}", delete=False)
 	write(f.name, x)
 	b = b64encode(open(f.name, "rb").read()).decode()
 	unlink(f.name)
-	return f"<img src=\"data:image/jpeg;base64,{b}&#10;\"/>"
+	return f"<img src=\"data:image/{t};base64,{b}&#10;\"/>"
 
 
 # API
@@ -136,7 +138,7 @@ def display(x):
 		return
 
 	from IPython.display import display, HTML
-	display(HTML(__img_tag_with_b64jpg(x)))
+	display(HTML(__img_tag_with_b64(x)))
 
 
 # internal function to get the variable names of the "gallery" function
@@ -164,7 +166,7 @@ def gallery(images):
 	for x in images:
 		z = __heuristic_reshape(x.shape)
 		H = max(H, z[0])
-		j = __img_tag_with_b64jpg(x)
+		j = __img_tag_with_b64(x)
 		s = n[i] if len(n) == len(images) else f"{i}"
 		L = f'{L}<li><a href="#">{s}<span>{j}</span></a>\n'
 		i = i + 1
@@ -231,6 +233,6 @@ def gallery(images):
 
 
 # API
-version = 16
+version = 17
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
