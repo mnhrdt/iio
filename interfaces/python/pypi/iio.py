@@ -145,10 +145,10 @@ def display(x):
 def __upnames():
 	from inspect import currentframe, getframeinfo
 	import re
-	f = currentframe().f_back.f_back        # frame of caller's caller
-	s = getframeinfo(f).code_context[0]     # extract call string
-	t = s.split('[',1)[-1].split(']',1)[0]  # get contents of call list
-	z = re.split(r',\s*(?![^()]*\))', t)    # split at non-bracket commas
+	f = currentframe().f_back.f_back           # frame of caller's caller
+	s = getframeinfo(f).code_context[0]        # extract call string
+	t = s.split('[',1)[-1].rsplit(']',1)[0]    # get contents of call list
+	z = re.split(r",\s*(?![^][()]*[\)\]])", t) # split at non-bracket commas
 	return z
 
 # API
@@ -233,6 +233,6 @@ def gallery(images):
 
 
 # API
-version = 17
+version = 18
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
