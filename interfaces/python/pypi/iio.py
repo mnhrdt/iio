@@ -122,7 +122,7 @@ def __img_tag_with_b64(x):
 	from os import unlink
 	from numpy import unique
 
-	t = "jpeg" if len(unique(x)) > 4 else "png"
+	t = "jpeg" if len(unique(x)) > 8 else "png"
 	f = NamedTemporaryFile(prefix="iioshow_", suffix=f".{t}", delete=False)
 	write(f.name, x)
 	b = b64encode(open(f.name, "rb").read()).decode()
@@ -233,6 +233,6 @@ def gallery(images):
 
 
 # API
-version = 18
+version = 19
 
 __all__ = [ "read", "write", "display", "gallery", "version" ]
