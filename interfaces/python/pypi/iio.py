@@ -109,7 +109,7 @@ def __heuristic_reshape(s):
 		return s
 
 # internal function to urlencode a numpy array into html
-def __img_tag_with_b64(x):
+def __img_tag_with_b64(x, p=False):
 	if (x.shape[0] > 4000):
 		s = __heuristic_reshape(x.shape)
 		if s == x.shape:
@@ -122,7 +122,7 @@ def __img_tag_with_b64(x):
 	from os import unlink
 	from numpy import unique
 
-	t = "jpeg" if len(unique(x)) > 8 else "png"
+	t = "png" if p or len(unique(x)) < 8 else "jpeg"
 	f = NamedTemporaryFile(prefix="iioshow_", suffix=f".{t}", delete=False)
 	write(f.name, x)
 	b = b64encode(open(f.name, "rb").read()).decode()
@@ -232,7 +232,214 @@ def gallery(images):
 	display(HTML( css  ))
 
 
-# API
-version = 19
+# internal function with the CSS styling for the cpu html viewer
+def __cpucss(x):
+	return """
+	.cpu {
+		width: 600px;
+		height: 400px;
+		overflow: hidden;
+		border: 1px solid #000;
+		background: #ccc;
+	}
 
-__all__ = [ "read", "write", "display", "gallery", "version" ]
+	.cpu > img {
+		image-rendering: crisp-edges;
+	}
+	""".replace("cpuX", x)
+
+# internal function with the Javascript code of the cpu html viewer
+def __cpujs(x):
+	return """
+	// get unique cpu element
+	const cpuX = document.getElementById("cpuX");
+
+	// initialize state of this cpu element
+	for (const c of [cpuX])
+	{
+		c.tabIndex = 0;
+		c.dataset.active = "false";
+		c.dataset.isPanning = "false";
+		viewport_reset_cpuX();
+		console.log(`initialized cpu cpuX ${cpuX}`);
+	}
+
+	function viewport_reset_cpuX() {
+		const c = cpuX;
+		c.dataset.offsetX = 0;
+		c.dataset.offsetY = 0;
+		c.dataset.scale = 1;
+		c.dataset.brightness = 1;
+		c.dataset.contrast = 100;
+	}
+
+	function viewport_offset_cpuX(dx, dy) {
+		const c = cpuX;
+		//console.log(`dxy ${dx} ${dy}`);
+		c.dataset.offsetX = Number(c.dataset.offsetX) + Number(dx);
+		c.dataset.offsetY = Number(c.dataset.offsetY) + Number(dy);
+	}
+
+	function viewport_scale_cpuX(x, y, lds) {
+		const c = cpuX;
+		//console.log(`S x=${x} y=${y} lds=${lds} ox=${offsetX} oy=${offsetY}`)
+		const cx = (x - Number(c.dataset.offsetX))/Number(c.dataset.scale);
+		const cy = (y - Number(c.dataset.offsetY))/Number(c.dataset.scale);
+		c.dataset.scale = lds * Number(c.dataset.scale);
+		c.dataset.offsetX = x - cx * Number(c.dataset.scale);
+		c.dataset.offsetY = y - cy * Number(c.dataset.scale);
+	}
+
+	function brightness_change_cpuX(d) {
+		const c = cpuX;
+		let b = Number(c.dataset.brightness);
+		if (d < 0)
+			b = b - 0.05;
+		else
+			b = b + 0.05;
+		if (b < 0)
+			b = 0;
+		if (b > 9)
+			b = 9;
+		c.dataset.brightness = b;
+	}
+
+	function contrast_change_cpuX(d) {
+		const c = cpuX;
+		let b = Number(c.dataset.contrast);
+		if (d < 0)
+			b = b - 5;
+		else
+			b = b + 5;
+		if (b < 0)
+			b = 0;
+		if (b > 900)
+			b = 900;
+		c.dataset.contrast = b;
+	}
+
+	function apply_transforms_cpuX() {
+		const c = cpuX;
+		const x = Number(c.dataset.offsetX);
+		const y = Number(c.dataset.offsetY);
+		const s = Number(c.dataset.scale);
+		const z = Number(c.dataset.brightness);
+		const t = Number(c.dataset.contrast);
+		//console.log(`tx = ${typeof(x)}`);
+		//console.log(`T ${x} ${y} ${s} z=${z} t=${t}`);
+		for (const i of c.getElementsByTagName("img")) {
+			i.style.transformOrigin = `left top`;
+			i.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+			i.style.filter = `brightness(${z}) saturate(${t}%)`;
+		}
+	}
+
+	function cpu_xy_cpuX(e) {
+		const c = cpuX;
+		const r = c.getBoundingClientRect();
+		const x = e.clientX - r.x;
+		const y = e.clientY - r.y;
+		return [x,y];
+	}
+
+	for (const c of [cpuX])
+	c.addEventListener("wheel", function(e) {
+		if (c.dataset.active == "false") return;
+		e.preventDefault();
+		if (e.shiftKey) { // brightness change
+			brightness_change_cpuX(e.deltaY);
+		} else if (e.ctrlKey) { // contrast change
+			contrast_change_cpuX(e.deltaY);
+		} else { // zoom
+			const factor = e.deltaY > 0 ? 2 : 0.5;
+			const [x,y]= cpu_xy_cpuX(e);
+			viewport_scale_cpuX(x, y, factor)
+		}
+		apply_transforms_cpuX();
+	});
+
+
+	for (const c of [cpuX])
+	c.addEventListener("mousedown", function(e) {
+		e.preventDefault();
+		if (e.which == 3) {
+			viewport_reset_cpuX();
+			apply_transforms_cpuX();
+		} else {
+			c.dataset.active = "true";
+			c.focus();
+			c.dataset.isPanning = "true";
+			const [x,y] = cpu_xy_cpuX(e);
+			c.dataset.startX = x;
+			c.dataset.startY = y;
+			c.style.cursor = "grabbing";
+			//console.log(`grab ${c.dataset.startX} ${c.dataset.startY}`);
+		}
+	});
+
+	for (const c of [cpuX])
+	c.addEventListener("mousemove", function(e) {
+		if (c.dataset.isPanning == "true") {
+			e.preventDefault();
+			const [x,y]= cpu_xy_cpuX(e);
+			const dx = x - Number(c.dataset.startX);
+			const dy = y - Number(c.dataset.startY);
+			viewport_offset_cpuX(dx, dy);
+			apply_transforms_cpuX();
+			c.dataset.startX = x;
+			c.dataset.startY = y;
+		}
+	});
+
+	for (const c of [cpuX])
+	c.addEventListener("mouseup", function(e) {
+		if (c.dataset.isPanning == "true") {
+			c.dataset.isPanning = "false";
+			c.style.cursor = "grab";
+			//window.cursor = 'grab';
+		}
+	});
+
+	for (const c of [cpuX])
+	c.addEventListener("mouseleave", function(e) {
+		c.dataset.isPanning = "false";
+	});
+
+	for (const c of [cpuX])
+	c.addEventListener("keyup", function(e) {
+		//console.log(`k = ${e.key}`);
+		if (e.key == "q" || e.key == "Escape") {
+			//console.log(`QHITE`);
+			c.dataset.active = "false";
+			document.activeElement.blur();
+		}
+		if (e.key == "r") {
+			viewport_reset_cpuX();
+			apply_transforms_cpuX();
+		}
+	});
+	""".replace("cpuX", x)
+
+
+# API: access to the interactive viewer
+# NOTE: maybe rename to "cpu" ?
+def explore(x):
+	"""Display the image inline (notebook or sixel terminal)"""
+	if not __notebookP():
+		write("-", x)
+		return
+
+	from IPython.display import display, HTML, Javascript
+	i = "cpu1"
+	h = f"<div class=\"cpu\" id=\"{i}\">{__img_tag_with_b64(x,True)}</div>"
+	c = f"<style>{__cpucss(i)}</style>"
+	j = __cpujs(i)
+	display(HTML(h))
+	display(HTML(c))
+	display(Javascript(j));
+
+
+# API
+version = 20
+
+__all__ = [ "read", "write", "display", "gallery", "explore", "version" ]
