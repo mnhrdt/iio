@@ -261,7 +261,6 @@ def __cpujs(x):
 		c.dataset.active = "false";
 		c.dataset.isPanning = "false";
 		viewport_reset_cpuX();
-		console.log(`initialized cpu cpuX ${cpuX}`);
 	}
 
 	function viewport_reset_cpuX() {
@@ -275,14 +274,12 @@ def __cpujs(x):
 
 	function viewport_offset_cpuX(dx, dy) {
 		const c = cpuX;
-		//console.log(`dxy ${dx} ${dy}`);
 		c.dataset.offsetX = Number(c.dataset.offsetX) + Number(dx);
 		c.dataset.offsetY = Number(c.dataset.offsetY) + Number(dy);
 	}
 
 	function viewport_scale_cpuX(x, y, lds) {
 		const c = cpuX;
-		//console.log(`S x=${x} y=${y} lds=${lds} ox=${offsetX} oy=${offsetY}`)
 		const cx = (x - Number(c.dataset.offsetX))/Number(c.dataset.scale);
 		const cy = (y - Number(c.dataset.offsetY))/Number(c.dataset.scale);
 		c.dataset.scale = lds * Number(c.dataset.scale);
@@ -325,8 +322,6 @@ def __cpujs(x):
 		const s = Number(c.dataset.scale);
 		const z = Number(c.dataset.brightness);
 		const t = Number(c.dataset.contrast);
-		//console.log(`tx = ${typeof(x)}`);
-		//console.log(`T ${x} ${y} ${s} z=${z} t=${t}`);
 		for (const i of c.getElementsByTagName("img")) {
 			i.style.transformOrigin = `left top`;
 			i.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
@@ -373,7 +368,6 @@ def __cpujs(x):
 			c.dataset.startX = x;
 			c.dataset.startY = y;
 			c.style.cursor = "grabbing";
-			//console.log(`grab ${c.dataset.startX} ${c.dataset.startY}`);
 		}
 	});
 
@@ -396,7 +390,6 @@ def __cpujs(x):
 		if (c.dataset.isPanning == "true") {
 			c.dataset.isPanning = "false";
 			c.style.cursor = "grab";
-			//window.cursor = 'grab';
 		}
 	});
 
@@ -407,9 +400,7 @@ def __cpujs(x):
 
 	for (const c of [cpuX])
 	c.addEventListener("keyup", function(e) {
-		//console.log(`k = ${e.key}`);
 		if (e.key == "q" || e.key == "Escape") {
-			//console.log(`QHITE`);
 			c.dataset.active = "false";
 			document.activeElement.blur();
 		}
@@ -426,11 +417,14 @@ def __cpujs(x):
 def explore(x):
 	"""Display the image inline (notebook or sixel terminal)"""
 	if not __notebookP():
+		# should run the acutal "cpu" here, if available
 		write("-", x)
 		return
 
+	explore.cx = getattr(explore, "cx", 0) + 1  # static counter
+
 	from IPython.display import display, HTML, Javascript
-	i = "cpu1"
+	i = f"cpu{explore.cx}"
 	h = f"<div class=\"cpu\" id=\"{i}\">{__img_tag_with_b64(x,True)}</div>"
 	c = f"<style>{__cpucss(i)}</style>"
 	j = __cpujs(i)
@@ -440,6 +434,6 @@ def explore(x):
 
 
 # API
-version = 20
+version = 21
 
 __all__ = [ "read", "write", "display", "gallery", "explore", "version" ]
