@@ -130,6 +130,14 @@ def __img_tag_with_b64(x, p=False):
 	return f"<img src=\"data:image/{t};base64,{b}&#10;\"/>"
 
 
+# encode the floating-point numbers of the array into a dataurl
+def __raw_dataurl(x):
+	from numpy import ascontiguousarray
+	from base64 import b64encode
+	p = ascontiguousarray(x, dtype='float32')
+	b = b64encode(p).decode()
+	return f"data:;base64,{b}&#10;"
+
 # API
 def display(x):
 	"""Display the image inline (notebook or sixel terminal)"""
