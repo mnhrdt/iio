@@ -4954,6 +4954,8 @@ static int guess_format(FILE *f, char *buf, int *nbuf, int bufmax)
 			return IIO_FORMAT_JPEG;
 		if (b[3]==0xe2 && b[6]=='I' && b[7]=='C') // ICC_PROFILE
 			return IIO_FORMAT_JPEG;
+		if (b[3]==0xe1 && b[4]==9 && b[5]==0xbd)  // C2PA
+			return IIO_FORMAT_JPEG;
 		if (b[3]==0xee || b[3]==0xed) // Adobe JPEG
 			return IIO_FORMAT_JPEG;
 		if (b[3]==0xdb) // Raw JPEG
