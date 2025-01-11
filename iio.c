@@ -1,4 +1,4 @@
-// IIO: a library for reading small images                                  {{{1
+// IIO: some C functions for reading small images                           {{{1
 //
 // Goal: load an image (of unknown format) from a given file
 //
@@ -10,13 +10,14 @@
 // gm convert...) to convert them into a readable format.  If anything else
 // fails, assume that the image is in headings+raw format, and try to extract
 // its dimensions and headings using some heuristics (file name containing
-// "%dx%d", headings containing ascii numbers, etc.)
+// "%dx%d", headings containing ascii numbers, etc.).  As a last resort, if
+// the automatic methods fail, the user can specify the format of the raw
+// data inside the file.
 //
 // Difficulties: most image libraries expect to be fed a whole file, not a
 // beheaded file.  Thus, some hackery is necessary.
 //
-// See file "iio.txt" for slightly more detailed documentation, and "iio.h" for
-// the API
+// See the README for a detailed documentation, and "iio.h" for the API
 //
 
 

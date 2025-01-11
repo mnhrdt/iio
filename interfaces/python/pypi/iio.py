@@ -7,6 +7,9 @@
 #           Caveat: numpy itself is not type-transparent, so this creates some
 #           problems.  For example, a code may work or not depending on the
 #           image file type.
+# TODO : 4. css-based .explore that works seamleslly on jupyter/vscode/collab
+# TODO : 5. canvas-based .explore with full cpu features
+# TODO : 6. allow the canvas-based .explore to ask data from server-side tiff
 
 
 # globally accessible C functions

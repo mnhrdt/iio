@@ -78,8 +78,9 @@ x = iio.read("lena.png")          # x is a numpy array
 iio.write("neg_lena.png", 255-x)
 
 # jupyter notebooks and sixel-terminals
-iio.display(x)
-iio.gallery([x, y, z])
+iio.display(x)            # display one image inline
+iio.gallery([x, y, z])    # display a flip-enabled image gallery
+iio.explore(x)            # advanced display of one image, allowing zoom/pan
 
 
 
