@@ -254,8 +254,17 @@ def __cpucss(x):
 		background: #ccc;
 	}
 
+	.coordinates {
+		width: 6em;
+		height: 1.5em;
+		background: #fff;
+		display: inline;
+		visibility: visible;
+	}
+
 	.cpu > img {
 		image-rendering: crisp-edges;
+		max-width: none;
 	}
 	""".replace("cpuX", x)
 
@@ -271,6 +280,7 @@ def __cpujs(x):
 		c.tabIndex = 0;
 		c.dataset.active = "false";
 		c.dataset.isPanning = "false";
+		c.dataset.hasHud = "false";
 		viewport_reset_cpuX();
 	}
 
@@ -375,6 +385,7 @@ def __cpujs(x):
 			c.dataset.active = "true";
 			c.focus();
 			c.dataset.isPanning = "true";
+			c.dataset.hasHud = "false";
 			const [x,y] = cpu_xy_cpuX(e);
 			c.dataset.startX = x;
 			c.dataset.startY = y;
@@ -393,6 +404,26 @@ def __cpujs(x):
 			apply_transforms_cpuX();
 			c.dataset.startX = x;
 			c.dataset.startY = y;
+		} else { c.dataset.hasHud = "true"; }
+
+		if (c.dataset.hasHud == "true") {
+		for (const i of c.getElementsByClassName("coordinates")) {
+			c.style.cursor = "crosshair";
+			i.style.position = "absolute";
+			i.style.visibility = "visible";
+			i.style.left = `${e.clientX-c.getBoundingClientRect().x+15}px`;
+			i.style.top = `${e.clientY-c.getBoundingClientRect().y+15}px`;
+			const x = e.clientX - c.getBoundingClientRect().x;
+			const y = e.clientY - c.getBoundingClientRect().y;
+			i.style.left = `${x+15}px`;
+			i.style.top  = `${y+15}px`;
+			const X = Math.floor((x - Number(c.dataset.offsetX))/Number(c.dataset.scale));
+			const Y = Math.floor((y - Number(c.dataset.offsetY))/Number(c.dataset.scale));
+			i.textContent = `${X} , ${Y}`;
+		} } else {
+		for (const i of c.getElementsByClassName("coordinates")) {
+			i.style.visibility = "hidden";
+			}
 		}
 	});
 
@@ -407,6 +438,10 @@ def __cpujs(x):
 	for (const c of [cpuX])
 	c.addEventListener("mouseleave", function(e) {
 		c.dataset.isPanning = "false";
+		c.dataset.hasHud = "false";
+		for (const i of c.getElementsByClassName("coordinates")) {
+			i.style.visibility = "hidden";
+		}
 	});
 
 	for (const c of [cpuX])
@@ -436,7 +471,7 @@ def explore(x):
 
 	from IPython.display import display, HTML, Javascript
 	i = f"cpu{explore.cx}"
-	h = f"<div class=\"cpu\" id=\"{i}\">{__img_tag_with_b64(x,True)}</div>"
+	h = f"<div class=\"cpu\" id=\"{i}\">{__img_tag_with_b64(x,True)}<div class=\"coordinates\">pqr</div></div>"
 	c = f"<style>{__cpucss(i)}</style>"
 	j = __cpujs(i)
 	display(HTML(h))
@@ -445,6 +480,6 @@ def explore(x):
 
 
 # API
-version = 21
+version = 22
 
 __all__ = [ "read", "write", "display", "gallery", "explore", "version" ]
