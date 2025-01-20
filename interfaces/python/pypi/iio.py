@@ -411,8 +411,6 @@ def __cpujs(x):
 			c.style.cursor = "crosshair";
 			i.style.position = "absolute";
 			i.style.visibility = "visible";
-			i.style.left = `${e.clientX-c.getBoundingClientRect().x+15}px`;
-			i.style.top = `${e.clientY-c.getBoundingClientRect().y+15}px`;
 			const x = e.clientX - c.getBoundingClientRect().x;
 			const y = e.clientY - c.getBoundingClientRect().y;
 			i.style.left = `${x+15}px`;
