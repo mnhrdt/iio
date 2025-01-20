@@ -9,6 +9,7 @@ from subprocess import check_output
 import sys
 
 extra_compile_args = get_config_var('CFLAGS').split()
+extra_compile_args += ["-DI_CAN_HAS_LIBWEBP"]
 #extra_compile_args += ["-DI_CAN_HAS_LIBHDF5"]
 
 extra_link_args = []
@@ -24,7 +25,7 @@ if sys.platform == "darwin":
 extensions = [Extension("libiio",
                         ["iio/iio.c"],
                         include_dirs=['iio', "/usr/local/include"],
-                        libraries=['png', 'jpeg', 'tiff'], #, "hdf5"],
+                        libraries=['png', 'jpeg', 'tiff', 'webp'], #, "hdf5"],
                         library_dirs=["/usr/local/lib"],
                         extra_compile_args=extra_compile_args,
                         extra_link_args=extra_link_args,
@@ -57,7 +58,7 @@ class _CommandInstall(_install_lib):
                 for file in outfiles]
 
 setup(name="iio",
-      version='22',
+      version='23',
       author="Jérémy Anger, Gabriele Facciolo, Enric Meinhardt-Llopis",
       author_email="enric.meinhardt@fastmail.com",
       description="Python wrapper to iio",
