@@ -424,7 +424,7 @@ static FILE *xfopen(const char *s, const char *p)
 		fail("can not open file \"%s\" in mode \"%s\"",// (%s)",
 				s, pp);//, strerror(errno));
 	global_variable_containing_the_name_of_the_last_opened_file = s;
-	IIO_DEBUG("fopen (%s) = %p\n", s, (void*)f);
+	IIO_DEBUG("fopen (%s,%s) = %p\n", s, p, (void*)f);
 	return f;
 }
 
@@ -1319,7 +1319,7 @@ static void *load_rest_of_file(long *on, FILE *f, void *buf, size_t bufn)
 	size_t n = bufn, ntop = n + 0x3000;
 	char *t =  xmalloc(ntop);
 	if (!t) fail("out of mem (%zu) while loading file", ntop);
-	memcpy(t, buf, bufn);
+	if (bufn) memcpy(t, buf, bufn);
 	while (1) {
 		if (n >= ntop) {
 			ntop = 1000 + 2*(ntop + 1);
@@ -4806,6 +4806,7 @@ static void iio_write_image_as_jpeg(const char *filename, struct iio_image *x)
 	// optionally, set compression quality
 	char *q = xgetenv("IIO_JPEG_QUALITY");
 	if (q) jpeg_set_quality(c, atoi(q), 1);
+	IIO_DEBUG("writing jpeg with quality q=\"%s\"\n", q);
 
 	// start compression, with optional comment field
 	jpeg_start_compress(c, true);
@@ -4828,6 +4829,130 @@ static void iio_write_image_as_jpeg(const char *filename, struct iio_image *x)
 }
 
 #endif//I_CAN_HAS_LIBJPEG
+
+
+
+// B64 writer (needs jpeg and png)                                          {{{2
+#ifdef I_CAN_HAS_LIBJPEG
+#ifdef I_CAN_HAS_LIBPNG
+
+static uint8_t *get_jpeg_bytes(struct iio_image *x, long *n)
+{
+	// 1. create temporary filename
+	// 2. save jpeg or png to temporary file
+	// 3. read bytes from temporary file
+
+	static char t[FILENAME_MAX];
+	fill_temporary_filename(t);
+	iio_write_image_as_jpeg(t, x);
+	FILE *f = xfopen(t, "r");
+	uint8_t *r = load_rest_of_file(n, f, NULL, 0);
+	xfclose(f);
+	delete_temporary_file(t);
+	return r;
+}
+
+static uint8_t *get_png_bytes(struct iio_image *x, long *n)
+{
+	static char t[FILENAME_MAX];
+	fill_temporary_filename(t);
+	iio_write_image_as_png(t, x);
+	FILE *f = xfopen(t, "r");
+	uint8_t *r = load_rest_of_file(n, f, NULL, 0);
+	xfclose(f);
+	delete_temporary_file(t);
+	return r;
+}
+
+
+static uint8_t encode_b64_quark(uint8_t x)
+{
+	assert(x < 64);
+	if (x < 26) return 'A' + x;
+	if (x < 52) return 'a' + x - 26;
+	if (x < 62) return '0' + x - 52;
+	if (x == 62) return '+';
+	if (x == 63) return '/';
+	fail("impossible base64 quark");
+	return 0;
+}
+
+//static uint8_t decode_b64_quark(uint8_t x)
+//{
+//	if (isupper(x)) return x - 'A';
+//	if (islower(x)) return x - 'a' + 26;
+//	if (isdigit(x)) return x - '0' + 52;
+//	if (x == '+' || x == '-') return 62;
+//	if (x == '/' || x == '_') return 63;
+//	fail("bad quark %c", x);
+//	return 0;
+//}
+
+static void split_bytes_to_quarks(uint8_t *y, uint8_t *x, int m, int n)
+{
+	assert(0 == n%3);
+	assert(0 == m%4);
+	assert(4*n == 3*m);
+	for (int i = 0; i < n/3; i++)
+	{
+		int a = x[3*i+0];
+		int b = x[3*i+1];
+		int c = x[3*i+2];
+		y[4*i+0] = a / 4;
+		y[4*i+1] = 16*(a % 4) + b/16;
+		y[4*i+2] = 4*(b % 16) + c/64;
+		y[4*i+3] = c % 64;
+	}
+}
+
+// base 64 encoding
+static uint8_t *alloc_and_encode_to_B64(uint8_t *xx, long nn, long *nout)
+{
+	int n = 3*((nn+2)/3);
+	uint8_t *x = xmalloc(n);
+	for (int i = 0; i < n; i++) x[i] = 0;
+	for (int i = 0; i < nn; i++) x[i] = xx[i];
+	int m = (n/3)*4;
+	uint8_t *y = xmalloc(m);
+	split_bytes_to_quarks(y, x, m, n);
+	xfree(x);
+	for (int i = 0; i < m; i++)
+		y[i] = encode_b64_quark(y[i]);
+	*nout = m;
+	return y;
+}
+
+static int count_unique_samples(uint8_t *x, int n)
+{
+	int t[256] = {0};
+	for (int i = 0; i < n; i++)
+		t[x[i]] = 1;
+	int r = 0;
+	for (int i = 0; i < 256; i++)
+		r += t[i];
+	return r;
+}
+
+static void iio_write_image_as_b64(const char *filename, struct iio_image *x)
+{
+	assert(x->type == IIO_TYPE_UINT8);
+	int u = count_unique_samples(x->data, iio_image_number_of_samples(x));
+	int U = 8; // whether the image is quantized (png) or not (jpeg)
+	long n, m;
+	uint8_t *b = u>U ? get_jpeg_bytes(x, &n) : get_png_bytes(x, &n);
+	uint8_t *d = alloc_and_encode_to_B64(b, n, &m);
+	FILE *f = xfopen(filename, "w");
+	fprintf(f, "<img src=\"data:image/%sg;base64,", u>U?"jpe":"pn");
+	for(long i = 0; i < m; i++)
+		fputc(d[i], f);
+	fprintf(f, "\" width=\"%d\" height=\"%d\">\n", *x->sizes, x->sizes[1]);
+	xfclose(f);
+	xfree(d);
+	xfree(b);
+}
+#endif//I_CAN_HAS_LIBPNG
+#endif//I_CAN_HAS_LIBJPEG
+
 
 // guess format using magic                                                 {{{1
 
@@ -5880,8 +6005,8 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		if (true
 			&& x->sizes[0] <= xgetenvf("IIO_SIXEL_MAXW", 855)
 			&& x->sizes[1] <= xgetenvf("IIO_SIXEL_MAXH", 800)
-			&& (x->pixel_dimension==3 || x->pixel_dimension==1)
-		   )
+			&&
+			(x->pixel_dimension==3 || x->pixel_dimension==1))
 			dump_sixels_to_stdout(x);
 		else
 			printf("IMAGE %dx%d,%d %s\n",
@@ -6119,6 +6244,27 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 		iio_write_image_as_jpeg(filename, x);
 		return;
 	}
+#endif//I_CAN_HAS_LIBJPEG
+#ifdef I_CAN_HAS_LIBJPEG
+#ifdef I_CAN_HAS_LIBPNG
+	if (string_suffix(filename, ".b64"))
+	{
+		IIO_DEBUG("b64 extension detected\n");
+		if (typ != IIO_TYPE_UINT8) {
+			void *old_data = x->data;
+			int ss = iio_image_sample_size(x);
+			x->data = xmalloc(nsamp*ss);
+			memcpy(x->data, old_data, nsamp*ss);
+			iio_convert_samples(x, IIO_TYPE_UINT8);
+			iio_write_image_as_b64(filename, x);
+			xfree(x->data);
+			x->data = old_data;
+			return;
+		}
+		iio_write_image_as_b64(filename, x);
+		return;
+	}
+#endif//I_CAN_HAS_LIBPNG
 #endif//I_CAN_HAS_LIBJPEG
 	IIO_DEBUG("SIDEF:\n");
 //#ifdef IIO_SHOW_DEBUG_MESSAGES
