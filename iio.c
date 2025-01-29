@@ -4933,8 +4933,231 @@ static int count_unique_samples(uint8_t *x, int n)
 	return r;
 }
 
-static void iio_write_image_as_b64(const char *filename, struct iio_image *x)
+static void cpu_css(FILE *f, int n)
 {
+	fprintf(f, "\n<style>\n\
+	#cpu%d.cpu {\n\
+		width: 600px;\n\
+		height: 400px;\n\
+		overflow: hidden;\n\
+		border: 1px solid #000;\n\
+		background: #ccc;\n\
+	}\n\
+\n\
+	.coordinates {\n\
+		width: 6em;\n\
+		height: 1.5em;\n\
+		background: #fff;\n\
+		display: inline;\n\
+		visibility: visible;\n\
+	}\n\
+\n\
+	.cpu > img {\n\
+		image-rendering: crisp-edges;\n\
+		max-width: none;\n\
+	}\n</style>\n", n);
+}
+
+static void cpu_js(FILE *f, int n)
+{
+	fprintf(f, "<script>\n\
+	// get unique cpu element\n\
+	const cpu%d = document.getElementById(\"cpu%d\");\n\
+\n\
+	// initialize state of this cpu element\n\
+	for (const c of [cpu%d])\n\
+	{\n\
+		c.tabIndex = 0;\n\
+		c.dataset.active = \"false\";\n\
+		c.dataset.isPanning = \"false\";\n\
+		c.dataset.hasHud = \"false\";\n\
+		viewport_reset_cpu%d();\n\
+	}\n\
+\n\
+	function viewport_reset_cpu%d() {\n\
+		const c = cpu%d;\n\
+		c.dataset.offsetX = 0;\n\
+		c.dataset.offsetY = 0;\n\
+		c.dataset.scale = 1;\n\
+		c.dataset.brightness = 1;\n\
+		c.dataset.contrast = 100;\n\
+	}\n\
+\n\
+	function viewport_offset_cpu%d(dx, dy) {\n\
+		const c = cpu%d;\n\
+		c.dataset.offsetX = Number(c.dataset.offsetX) + Number(dx);\n\
+		c.dataset.offsetY = Number(c.dataset.offsetY) + Number(dy);\n\
+	}\n\
+\n\
+	function viewport_scale_cpu%d(x, y, lds) {\n\
+		const c = cpu%d;\n\
+		const cx = (x - Number(c.dataset.offsetX))/Number(c.dataset.scale);\n\
+		const cy = (y - Number(c.dataset.offsetY))/Number(c.dataset.scale);\n\
+		c.dataset.scale = lds * Number(c.dataset.scale);\n\
+		c.dataset.offsetX = x - cx * Number(c.dataset.scale);\n\
+		c.dataset.offsetY = y - cy * Number(c.dataset.scale);\n\
+	}\n\
+\n\
+	function brightness_change_cpu%d(d) {\n\
+		const c = cpu%d;\n\
+		let b = Number(c.dataset.brightness);\n\
+		if (d < 0)\n\
+			b = b - 0.05;\n\
+		else\n\
+			b = b + 0.05;\n\
+		if (b < 0)\n\
+			b = 0;\n\
+		if (b > 9)\n\
+			b = 9;\n\
+		c.dataset.brightness = b;\n\
+	}\n\
+\n\
+	function contrast_change_cpu%d(d) {\n\
+		const c = cpu%d;\n\
+		let b = Number(c.dataset.contrast);\n\
+		if (d < 0)\n\
+			b = b - 5;\n\
+		else\n\
+			b = b + 5;\n\
+		if (b < 0)\n\
+			b = 0;\n\
+		if (b > 900)\n\
+			b = 900;\n\
+		c.dataset.contrast = b;\n\
+	}\n\
+\n\
+	function apply_transforms_cpu%d() {\n\
+		const c = cpu%d;\n\
+		const x = Number(c.dataset.offsetX);\n\
+		const y = Number(c.dataset.offsetY);\n\
+		const s = Number(c.dataset.scale);\n\
+		const z = Number(c.dataset.brightness);\n\
+		const t = Number(c.dataset.contrast);\n\
+		for (const i of c.getElementsByTagName(\"img\")) {\n\
+			i.style.transformOrigin = `left top`;\n\
+			i.style.transform = `translate(${x}px, ${y}px) scale(${s})`;\n\
+			i.style.filter = `brightness(${z}) saturate(${t}%%)`;\n\
+		}\n\
+	}\n\
+\n\
+	function cpu_xy_cpu%d(e) {\n\
+		const c = cpu%d;\n\
+		const r = c.getBoundingClientRect();\n\
+		const x = e.clientX - r.x;\n\
+		const y = e.clientY - r.y;\n\
+		return [x,y];\n\
+	}\n\
+\n\
+	for (const c of [cpu%d])\n\
+	c.addEventListener(\"wheel\", function(e) {\n\
+		if (c.dataset.active == \"false\") return;\n\
+		e.preventDefault();\n\
+		if (e.shiftKey) { // brightness change\n\
+			brightness_change_cpu%d(e.deltaY);\n\
+		} else if (e.ctrlKey) { // contrast change\n\
+			contrast_change_cpu%d(e.deltaY);\n\
+		} else { // zoom\n\
+			const factor = e.deltaY > 0 ? 2 : 0.5;\n\
+			const [x,y]= cpu_xy_cpu%d(e);\n\
+			viewport_scale_cpu%d(x, y, factor)\n\
+		}\n\
+		apply_transforms_cpu%d();\n\
+	});\n\
+\n\
+\n\
+	for (const c of [cpu%d])\n\
+	c.addEventListener(\"mousedown\", function(e) {\n\
+		e.preventDefault();\n\
+		if (e.which == 3) {\n\
+			viewport_reset_cpu%d();\n\
+			apply_transforms_cpu%d();\n\
+		} else {\n\
+			c.dataset.active = \"true\";\n\
+			c.focus();\n\
+			c.dataset.isPanning = \"true\";\n\
+			c.dataset.hasHud = \"false\";\n\
+			const [x,y] = cpu_xy_cpu%d(e);\n\
+			c.dataset.startX = x;\n\
+			c.dataset.startY = y;\n\
+			c.style.cursor = \"grabbing\";\n\
+		}\n\
+	});\n\
+\n\
+	for (const c of [cpu%d])\n\
+	c.addEventListener(\"mousemove\", function(e) {\n\
+		if (c.dataset.isPanning == \"true\") {\n\
+			e.preventDefault();\n\
+			const [x,y]= cpu_xy_cpu%d(e);\n\
+			const dx = x - Number(c.dataset.startX);\n\
+			const dy = y - Number(c.dataset.startY);\n\
+			viewport_offset_cpu%d(dx, dy);\n\
+			apply_transforms_cpu%d();\n\
+			c.dataset.startX = x;\n\
+			c.dataset.startY = y;\n\
+		} else { c.dataset.hasHud = \"true\"; }\n\
+\n\
+		if (c.dataset.hasHud == \"true\") {\n\
+		for (const i of c.getElementsByClassName(\"coordinates\")) {\n\
+			c.style.cursor = \"crosshair\";\n\
+			i.style.position = \"absolute\";\n\
+			i.style.visibility = \"visible\";\n\
+			const x = e.clientX - c.getBoundingClientRect().x;\n\
+			const y = e.clientY - c.getBoundingClientRect().y;\n\
+			i.style.left = `${x+15}px`;\n\
+			i.style.top  = `${y+15}px`;\n\
+			const X = Math.floor((x - Number(c.dataset.offsetX))/Number(c.dataset.scale));\n\
+			const Y = Math.floor((y - Number(c.dataset.offsetY))/Number(c.dataset.scale));\n\
+			i.textContent = `${X} , ${Y}`;\n\
+		} } else {\n\
+		for (const i of c.getElementsByClassName(\"coordinates\")) {\n\
+			i.style.visibility = \"hidden\";\n\
+			}\n\
+		}\n\
+	});\n\
+\n\
+	for (const c of [cpu%d])\n\
+	c.addEventListener(\"mouseup\", function(e) {\n\
+		if (c.dataset.isPanning == \"true\") {\n\
+			c.dataset.isPanning = \"false\";\n\
+			c.style.cursor = \"grab\";\n\
+		}\n\
+	});\n\
+\n\
+	for (const c of [cpu%d])\n\
+	c.addEventListener(\"mouseleave\", function(e) {\n\
+		c.dataset.isPanning = \"false\";\n\
+		c.dataset.hasHud = \"false\";\n\
+		for (const i of c.getElementsByClassName(\"coordinates\")) {\n\
+			i.style.visibility = \"hidden\";\n\
+		}\n\
+	});\n\
+\n\
+	for (const c of [cpu%d])\n\
+	c.addEventListener(\"keyup\", function(e) {\n\
+		if (e.key == \"q\" || e.key == \"Escape\") {\n\
+			c.dataset.active = \"false\";\n\
+			document.activeElement.blur();\n\
+		}\n\
+		if (e.key == \"r\") {\n\
+			viewport_reset_cpu%d();\n\
+			apply_transforms_cpu%d();\n\
+		}\n\
+	});\n</script>\n", // 37
+		n,n,n,n,n, n,n,n,n,n,
+		n,n,n,n,n, n,n,n,n,n,
+		n,n,n,n,n, n,n,n,n,n,
+		n,n,n,n,n, n,n);
+}
+
+static void iio_write_image_as_b64(const char *filename, struct iio_image *x,
+		int fanciness)
+{
+	// counter used only if fanciness>0, to disambiguate js identifiers
+	static int global_cpu_cx = 0;
+	if (fanciness) global_cpu_cx += 1;
+	int cpu_cx = global_cpu_cx;
+	if (xgetenv("IIO_CPUX")) cpu_cx = atoi(xgetenv("IIO_CPUX"));
+
 	assert(x->type == IIO_TYPE_UINT8);
 	int u = count_unique_samples(x->data, iio_image_number_of_samples(x));
 	int U = 8; // whether the image is quantized (png) or not (jpeg)
@@ -4942,14 +5165,19 @@ static void iio_write_image_as_b64(const char *filename, struct iio_image *x)
 	uint8_t *b = u>U ? get_jpeg_bytes(x, &n) : get_png_bytes(x, &n);
 	uint8_t *d = alloc_and_encode_to_B64(b, n, &m);
 	FILE *f = xfopen(filename, "w");
+	if (fanciness) fprintf(f, "<div class=\"cpu\" id=\"cpu%d\">\n", cpu_cx);
 	fprintf(f, "<img src=\"data:image/%sg;base64,", u>U?"jpe":"pn");
 	for(long i = 0; i < m; i++)
 		fputc(d[i], f);
 	fprintf(f, "\" width=\"%d\" height=\"%d\">\n", *x->sizes, x->sizes[1]);
+	if (fanciness) fprintf(f, "<div class=\"coordinates\"></div></div>");
+	if (fanciness) cpu_css(f, cpu_cx);
+	if (fanciness) cpu_js(f, cpu_cx);
 	xfclose(f);
 	xfree(d);
 	xfree(b);
 }
+
 #endif//I_CAN_HAS_LIBPNG
 #endif//I_CAN_HAS_LIBJPEG
 
@@ -6247,21 +6475,22 @@ static void iio_write_image_default(const char *filename, struct iio_image *x)
 #endif//I_CAN_HAS_LIBJPEG
 #ifdef I_CAN_HAS_LIBJPEG
 #ifdef I_CAN_HAS_LIBPNG
-	if (string_suffix(filename, ".b64"))
+	if (string_suffix(filename, ".b64") || string_suffix(filename, ".html"))
 	{
-		IIO_DEBUG("b64 extension detected\n");
+		int fanciness = string_suffix(filename, ".html");
+		IIO_DEBUG("%s extension detected\n",fanciness?"html":"b64");
 		if (typ != IIO_TYPE_UINT8) {
 			void *old_data = x->data;
 			int ss = iio_image_sample_size(x);
 			x->data = xmalloc(nsamp*ss);
 			memcpy(x->data, old_data, nsamp*ss);
 			iio_convert_samples(x, IIO_TYPE_UINT8);
-			iio_write_image_as_b64(filename, x);
+			iio_write_image_as_b64(filename, x, fanciness);
 			xfree(x->data);
 			x->data = old_data;
 			return;
 		}
-		iio_write_image_as_b64(filename, x);
+		iio_write_image_as_b64(filename, x, fanciness);
 		return;
 	}
 #endif//I_CAN_HAS_LIBPNG
