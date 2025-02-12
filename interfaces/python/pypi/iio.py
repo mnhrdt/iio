@@ -153,11 +153,12 @@ def display(x):
 
 
 # internal function to get the variable names of the "gallery" function
-def __upnames():
+def __upnames(n):
 	from inspect import currentframe, getframeinfo
 	import re
 	f = currentframe().f_back.f_back           # frame of caller's caller
-	s = getframeinfo(f).code_context[0]        # extract call string
+	i = getframeinfo(f,context=(4+2*n))        # get a few lines of context
+	s = ''.join(i.code_context[i.index:])      # extract call string
 	t = s.split('[',1)[-1].rsplit(']',1)[0]    # get contents of call list
 	z = re.split(r",\s*(?![^][()]*[\)\]])", t) # split at non-bracket commas
 	return z
@@ -170,15 +171,17 @@ def gallery(images):
 			write("-", x)
 		return
 
-	n = __upnames()  # list of variable names upon call
-	L = ""           # html list of gallery items
-	H = 0            # height of the gallery (height of the tallest image)
-	i = 0            # loop counter
+	n = __upnames(len(images))  # list of variable names upon call
+	L = ""                      # html list of gallery items
+	H = 0                       # height of the gallery (of tallest image)
+	W = 0                       # "width" of the gallery (of longest label)
+	i = 0                       # loop counter
 	for x in images:
 		z = __heuristic_reshape(x.shape)
 		H = max(H, z[0])
 		j = __img_tag_with_b64(x)
 		s = n[i] if len(n) == len(images) else f"{i}"
+		W = max(W, len(s))
 		L = f'{L}<li><a href="#">{s}<span>{j}</span></a>\n'
 		i = i + 1
 
@@ -234,8 +237,9 @@ def gallery(images):
 	</style>
 	"""
 
-	html = html.replace("gallery2", f"gallery{H}")
-	css  = css .replace("gallery2", f"gallery{H}")
+	html = html.replace("gallery2", f"gallery-{H}-{W}")
+	css  = css .replace("gallery2", f"gallery-{H}-{W}")
+	css  = css.replace("12.5em", f"{14}em")
 	# TODO: widen the gallery legend so that the longest item name fits
 
 	from  IPython.display import display, HTML
@@ -456,7 +460,7 @@ def __cpujs(x):
 	""".replace("cpuX", x)
 
 
-# API: access to the interactive viewer
+# API: access to the interactive viewer within jupyter notebooks
 # NOTE: maybe rename to "cpu" ?
 def explore(x):
 	"""Display the image inline (notebook or sixel terminal)"""
@@ -478,6 +482,6 @@ def explore(x):
 
 
 # API
-version = 23
+version = 25
 
 __all__ = [ "read", "write", "display", "gallery", "explore", "version" ]
