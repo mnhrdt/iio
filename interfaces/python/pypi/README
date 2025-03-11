@@ -6,6 +6,7 @@ commands:
 	cd pypi
         # update version number on file setup.py
         # update version number on file iio.py
+	python -m build
 	python setup.py sdist bdist_wheel
 	python -m twine upload dist/iio-X.tar.gz
 	rm -rf build dist iio.egg-info
