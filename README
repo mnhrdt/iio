@@ -74,7 +74,7 @@ iio.write("lena.png", x)
 
 # python
 import iio
-x = iio.read("lena.png")          # x is a numpy array
+x = iio.read("lena.png")          # x is a numpy array of shape (256,256,3)
 iio.write("neg_lena.png", 255-x)
 
 # jupyter notebooks and sixel-terminals
@@ -370,7 +370,7 @@ secondary afterthought, and there is no intention to support a
 complete set of formats.  Specifically, lossy compression is not
 implemented.
 
-By default, images are now saved as (uncompressed) numpy arrays.  If a file
+By default, images are saved as (uncompressed) numpy arrays.  If a file
 extension is recognized then a different format is used:
 
 	.npy  : Numpy array
@@ -390,11 +390,16 @@ extension is recognized then a different format is used:
 	.TIFF : tiff format (type is determined by C data type)
 	.png  :
 	.PNG  : png format (8 bits)
+	.jpg  :
+	.jpeg : JPEG format (with default quality from libjpeg)
 
 To force TIFF output format, prefix the filename with "TIFF:".  For example,
 "TIFF:-" writes a TIFF file to stdout.
 
 To force 16 bits png, use the prefix "PNG16:".
+
+To change the output jpeg quality set the environment variable IIO_JPEG_QUALITY.
+
 
 
 
