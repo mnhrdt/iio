@@ -154,22 +154,38 @@ def display(x):
 
 # internal function to get the variable names of the "gallery" function
 def __upnames(n):
+	def split_at_non_bracket_commas(t):
+		o = [""]   # output list of strings
+		n = 0      # nesting counter
+		k = False  # inside comment state
+		for c in t:
+			if c == '#': k = True
+			if k and c == '\n': k = False
+			if not k:
+				if c=='(' or c=='[' or c=='{' : n += 1
+				if c==')' or c==']' or c=='}' : n -= 1
+				if n==0 and c==',': o.append("")
+				else: o[-1] += c
+		return o
 	from inspect import currentframe, getframeinfo
-	import re
 	f = currentframe().f_back.f_back           # frame of caller's caller
 	i = getframeinfo(f,context=(4+2*n))        # get a few lines of context
 	s = ''.join(i.code_context[i.index:])      # extract call string
 	t = s.split('[',1)[-1].rsplit(']',1)[0]    # get contents of call list
-	z = re.split(r",\s*(?![^][()]*[\)\]])", t) # split at non-bracket commas
+	z = split_at_non_bracket_commas(t)
 	return z
 
 # API
-def gallery(images):
+def gallery(images, qauto=False):
 	"""Display an array of images inline (notebook or sixel terminal)"""
 	if not __notebookP():
 		for x in images:
 			write("-", x)
 		return
+
+	def SCB(x):
+		m,M = x.min(), x.max()
+		return 255.0*(x - m)/(M - m), f"<br>qauto min={m} max={M}"
 
 	n = __upnames(len(images))  # list of variable names upon call
 	L = ""                      # html list of gallery items
@@ -179,10 +195,14 @@ def gallery(images):
 	for x in images:
 		z = __heuristic_reshape(x.shape)
 		H = max(H, z[0])
-		j = __img_tag_with_b64(x)
+		if qauto:
+			y,Y = SCB(x)
+		else:
+			y,Y = x,""
+		j = __img_tag_with_b64(y)
 		s = n[i] if len(n) == len(images) else f"{i}"
 		W = max(W, len(s))
-		L = f'{L}<li><a href="#">{s}<span>{j}</span></a>\n'
+		L = f'{L}<li><a href="#">{s}<span>{j}{Y}</span></a>\n'
 		i = i + 1
 
 	html = f"""
@@ -218,6 +238,8 @@ def gallery(images):
 		padding: 6px; }}
 	.gallery2 .index a span {{ /* gallery2 item content */
 		display: block;
+		background-color: #FFFFFF;
+		color: #FF0000;
 		position: absolute;
 		left: -9999px; /* hidden */
 		top: 0em;
@@ -482,6 +504,6 @@ def explore(x):
 
 
 # API
-version = 25
+version = 26
 
 __all__ = [ "read", "write", "display", "gallery", "explore", "version" ]
