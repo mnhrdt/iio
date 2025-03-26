@@ -165,7 +165,7 @@ def __upnames(n):
 				if c=='(' or c=='[' or c=='{' : n += 1
 				if c==')' or c==']' or c=='}' : n -= 1
 				if n==0 and c==',': o.append("")
-				else: o[-1] += c
+				else: o[-1] = f"{o[-1]}{c}"
 		return o
 	from inspect import currentframe, getframeinfo
 	f = currentframe().f_back.f_back           # frame of caller's caller
@@ -183,9 +183,25 @@ def gallery(images, qauto=False):
 			write("-", x)
 		return
 
+	# note: internal functions for gallery convenience are defined here
+	# (this is to avoid them polluting the iio namespace)
+	# TODO: actual palette support, besides this lame qauto hack
+
 	def SCB(x):
 		m,M = x.min(), x.max()
 		return 255.0*(x - m)/(M - m), f"<br>qauto min={m} max={M}"
+
+	def sauto(x, q=1):
+		from numpy import clip, fabs, dstack, nanquantile, nan_to_num
+		s = nanquantile(fabs(x), q)    # find saturation quantile
+		r = 1 - clip(x/s, 0, 1)        # red component
+		g = 1 - clip(fabs(x/s), 0, 1)  # green
+		b = 1 + clip(x/s, -1, 0)       # blue
+		c = dstack([r, g, b])          # color
+		c = clip(c, 0, 1)              # saturate color into [0,1]
+		c = nan_to_num(c, nan=0.5)     # set nans to gray
+		c = (255*c).astype(int)        # rescale and quantize
+		return c, f"<br>sauto ±{s}"
 
 	n = __upnames(len(images))  # list of variable names upon call
 	L = ""                      # html list of gallery items
@@ -196,7 +212,10 @@ def gallery(images, qauto=False):
 		z = __heuristic_reshape(x.shape)
 		H = max(H, z[0])
 		if qauto:
-			y,Y = SCB(x)
+			if isinstance(qauto, str) and qauto=="sign":
+				y,Y = sauto(x)
+			else:
+				y,Y = SCB(x)
 		else:
 			y,Y = x,""
 		j = __img_tag_with_b64(y)
@@ -504,6 +523,6 @@ def explore(x):
 
 
 # API
-version = 26
+version = 28
 
 __all__ = [ "read", "write", "display", "gallery", "explore", "version" ]
