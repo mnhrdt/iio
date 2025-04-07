@@ -59,7 +59,7 @@ class _CommandInstall(_install_lib):
 
 from setuptools import setup
 setup(name="iio",
-	version='26',
+	version='28',
 	author="Jérémy Anger, Gabriele Facciolo, Enric Meinhardt-Llopis",
 	author_email="enric.meinhardt@fastmail.com",
 	description="Python wrapper to iio",
