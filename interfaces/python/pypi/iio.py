@@ -61,8 +61,6 @@ def read(filename):
 	d = c_int()
 
 	p = __iio_read(filename.encode('utf-8'), w, h, d)
-	print(type(p))
-	print(p)
 	x = as_array(p, (h.value, w.value, d.value)).copy()
 	__libc_free(p)
 	return x
