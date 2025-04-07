@@ -61,6 +61,8 @@ def read(filename):
 	d = c_int()
 
 	p = __iio_read(filename.encode('utf-8'), w, h, d)
+	print(type(p))
+	print(p)
 	x = as_array(p, (h.value, w.value, d.value)).copy()
 	__libc_free(p)
 	return x
@@ -159,13 +161,13 @@ def __upnames(n):
 		n = 0      # nesting counter
 		k = False  # inside comment state
 		for c in t:
-			if c == '#': k = True
-			if k and c == '\n': k = False
+			if c == '#' : k = True
+			if c == '\n': k = False
 			if not k:
 				if c=='(' or c=='[' or c=='{' : n += 1
 				if c==')' or c==']' or c=='}' : n -= 1
 				if n==0 and c==',': o.append("")
-				else: o[-1] += c
+				else: o[-1] = f"{o[-1]}{c}"
 		return o
 	from inspect import currentframe, getframeinfo
 	f = currentframe().f_back.f_back           # frame of caller's caller
