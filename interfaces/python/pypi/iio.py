@@ -523,6 +523,6 @@ def explore(x):
 
 
 # API
-version = 28
+version = 29
 
 __all__ = [ "read", "write", "display", "gallery", "explore", "version" ]

@@ -8,4 +8,4 @@ commands:
         # update version number on file iio.py
 	python -m build
 	python -m twine upload dist/iio-X.tar.gz
-	rm -rf build dist iio.egg-info
+	rm -rf dist iio.egg-info

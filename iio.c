@@ -3521,13 +3521,13 @@ static int read_beheaded_fit(struct iio_image *x,
 		char v[81] = {0}; // "value" field of the line
 		int r = fread(l, 1, 80, f);
 		if (r != 80) fail("FITS reader failed at line %d\n", n);
-		fprintf(stderr, "FITS(%d): \"%s\"\n", n, l);
+		IIO_DEBUG("FITS(%d): \"%s\"\n", n, l);
 		if (l[0]=='E' && l[1]=='N' && l[2]=='D' && l[3]==' ')
 			break;
 
 		fit_parse_line(k, v, l);
-		fprintf(stderr, "\tk=\"%s\"\n", k);
-		fprintf(stderr, "\tv=\"%s\"\n", v);
+		IIO_DEBUG("\tk=\"%s\"\n", k);
+		IIO_DEBUG("\tv=\"%s\"\n", v);
 
 		if (!strcmp(k, "BITPIX")) bitpix = atoi(v);
 		if (!strcmp(k, "NAXIS" )) d = atoi(v);
@@ -3536,7 +3536,7 @@ static int read_beheaded_fit(struct iio_image *x,
 		if (!strcmp(k, "NAXIS3")) pd = atoi(v);
 	}
 
-	fprintf(stderr, "n = %d\n", n);
+	IIO_DEBUG("n = %d\n", n);
 
 	// read padding lines until the next multiple of 36
 	if (n % 36) while (++n % 36) {
@@ -3554,11 +3554,11 @@ static int read_beheaded_fit(struct iio_image *x,
 	if (bitpix == -64) typ = IIO_TYPE_DOUBLE;
 	if (typ < 0) fail("unrecognized FITS BITPIX=%d", bitpix);
 
-	fprintf(stderr, "w = %d\n", w);
-	fprintf(stderr, "h = %d\n", h);
-	fprintf(stderr, "pd = %d\n", pd);
-	fprintf(stderr, "d = %d\n", d);
-	fprintf(stderr, "typ = %s (%d)\n", iio_strtyp(typ), typ);
+	IIO_DEBUG("w = %d\n", w);
+	IIO_DEBUG("h = %d\n", h);
+	IIO_DEBUG("pd = %d\n", pd);
+	IIO_DEBUG("d = %d\n", d);
+	IIO_DEBUG("typ = %s (%d)\n", iio_strtyp(typ), typ);
 
 	// fill-in the image struct
 	iio_image_init2d(x, w, h, pd, typ);
