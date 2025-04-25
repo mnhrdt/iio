@@ -159,8 +159,8 @@ def __upnames(n):
 		n = 0      # nesting counter
 		k = False  # inside comment state
 		for c in t:
-			if c == '#': k = True
-			if k and c == '\n': k = False
+			if c == '#' : k = True
+			if c == '\n': k = False
 			if not k:
 				if c=='(' or c=='[' or c=='{' : n += 1
 				if c==')' or c==']' or c=='}' : n -= 1
