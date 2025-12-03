@@ -322,8 +322,13 @@ static float xgetenvf(const char *s, float d)
 	const char *v = xgetenv(s);
 	return v ? atof(v) : d;
 }
+static char iio_last_error[2048] = {0};
 
-static void fail(const char *fmt, ...) __attribute__((noreturn,format(printf,1,2)));
+const char *iio_get_last_error(void) {
+    return iio_last_error;
+}
+
+static void fail(const char *fmt, ...) __attribute__((format(printf,1,2)));
 static void fail(const char *fmt, ...)
 
 {
@@ -334,6 +339,10 @@ static void fail(const char *fmt, ...)
 	va_end(argp);
 	fprintf(stderr, "\n\n");
 	fflush(NULL);
+	// save clean error message
+    va_start(argp, fmt);
+    vsnprintf(iio_last_error, sizeof(iio_last_error), fmt, argp);
+    va_end(argp);
 //	if (global_hack_to_never_fail)
 //	{
 //		IIO_DEBUG("now wave a dead chicken and press enter\n");

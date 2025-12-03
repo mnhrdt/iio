@@ -11,18 +11,19 @@
 # TODO : 5. canvas-based .explore with full cpu features
 # TODO : 6. allow the canvas-based .explore to ask data from server-side tiff
 
-
+import os 
 # globally accessible C functions
 __libc_free = 0
 __iio_read  = 0
 __iio_write = 0
-
+__iio_get_last_error = 0  
 
 # internal function to initialize the C interface
 def __setup_functions():
 	global __libc_free
 	global __iio_read
 	global __iio_write
+	global __iio_get_last_error
 	if __libc_free != 0: return
 
 	from os.path import abspath, dirname
@@ -36,7 +37,8 @@ def __setup_functions():
 	libc.free.argtypes = [c_void_p]
 	libc.free.restype = c_void_p
 	__libc_free = libc.free
-
+	libiio.iio_get_last_error.restype = c_char_p
+	__iio_get_last_error = libiio.iio_get_last_error
 	R = libiio.iio_read_image_float_vec
 	R.argtypes = [c_char_p, POINTER(c_int), POINTER(c_int), POINTER(c_int)]
 	R.restype = POINTER(c_float)
@@ -51,6 +53,8 @@ def __setup_functions():
 # API
 def read(filename):
 	"""Read an image file into a numpy array of floats"""
+	if not os.path.exists(filename):
+		raise FileNotFoundError(f"[Errno 2] No such file or directory: {filename}")
 	from ctypes import c_int
 	from numpy.ctypeslib import as_array
 
@@ -61,6 +65,14 @@ def read(filename):
 	d = c_int()
 
 	p = __iio_read(filename.encode('utf-8'), w, h, d)
+	# display the error message if p is NULL
+	from ctypes import cast
+	if not p:
+		err = __iio_get_last_error()
+		if err:
+			raise ValueError(err.decode("utf-8"))
+		raise ValueError("iio_read returned NULL without error message")
+	# convert to numpy array and free the C memory
 	x = as_array(p, (h.value, w.value, d.value)).copy()
 	__libc_free(p)
 	return x
