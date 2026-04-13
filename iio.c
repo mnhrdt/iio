@@ -3574,6 +3574,10 @@ static int read_beheaded_fit(struct iio_image *x,
 		switch_4endianness(x->data, iio_image_number_of_samples(x));
 	if (bitpix == -64)
 		switch_8endianness(x->data, iio_image_number_of_samples(x));
+	if (pd > 1)
+		repair_broken_pixels_inplace(x->data, w*h, pd,
+				iio_image_sample_size(x));
+
 
 	return 0;
 }
@@ -3670,7 +3674,6 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 		int header_bytes, int sample_type,
 		bool broken_pixels, bool endianness)
 {
-	(void)broken_pixels;
 	size_t nsamples = w*h*pd;
 	size_t ss = iio_type_size(sample_type);
 	if (ndata < header_bytes + nsamples*ss) {
@@ -3688,6 +3691,9 @@ static int parse_raw_binary_image_explicit(struct iio_image *x,
 		if (ss >= 4)
 			switch_4endianness(x->data, nsamples);
 	}
+	IIO_DEBUG("prbie xdata=%p nsamples=%zu, ss=%zu\n",x->data,nsamples,ss);
+	if (broken_pixels)
+		repair_broken_pixels_inplace(x->data, w*h, pd, ss);
 	return 0;
 }
 
