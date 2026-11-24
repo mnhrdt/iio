@@ -620,6 +620,24 @@ static void iio_type_unid(int *size, bool *ieefp, bool *signedness, int type)
 }
 
 // internal API
+#include <limits.h>
+
+// Allocation of image buffers takes signed dimensions parsed from untrusted
+// headers. Capping the sample count at INT_MAX keeps every derived int
+// expression (fread counts, flat loops) away from overflow as well.
+static void *xmalloc_image_buf(int w, int h, int pd, size_t item)
+{
+	if (w <= 0 || h <= 0 || pd <= 0 || item == 0)
+		fail("invalid image dimensions");
+	size_t sw = (size_t)w, sh = (size_t)h, spd = (size_t)pd;
+	if (sw > (size_t)INT_MAX / sh || (sw * sh) > (size_t)INT_MAX / spd)
+		fail("image element count overflows int");
+	size_t n = sw * sh * spd;
+	if (n > SIZE_MAX / item)
+		fail("image byte size overflow");
+	return xmalloc(n * item);
+}
+
 static long iio_image_number_of_elements(struct iio_image *x)
 {
 	iio_image_assert_struct_consistency(x);
@@ -1801,7 +1819,7 @@ static int read_whole_tiff(struct iio_image *x, const char *filename)
 		IIO_DEBUG("\tw = %d\n", w);
 		IIO_DEBUG("\th = %d\n", h);
 		iio_image_init2d(x, w, h, 4, IIO_TYPE_UINT8);
-		x->data = xmalloc(w*h*4);
+		x->data = xmalloc_image_buf(w, h, 4, 1);
 		r = TIFFReadRGBAImageOriented(tif, w, h, (uint32_t*)x->data, ORIENTATION_TOPLEFT, 0);
 		IIO_DEBUG("\tr = %d\n", r);
 		if (!r) fail("TIFFReadRGBAImage(\"%s\") failed\n", filename);
@@ -1813,7 +1831,8 @@ go_on:
 	else
 		assert((int)scanline_size == spp*sls);
 	assert((int)scanline_size >= sls);
-	uint8_t *data = xmalloc(w * h * spp * rbps * (complicated?2:1));
+	uint8_t *data = xmalloc_image_buf(w, h, spp,
+					(size_t)rbps * (complicated ? 2u : 1u));
 	uint8_t *buf = xmalloc(scanline_size);
 
 	// use a particular reader for tiled tiff
@@ -2266,7 +2285,7 @@ static int read_beheaded_heif(struct iio_image *x,
 	int h = heif_image_handle_get_height(handle);
 
 	iio_image_init2d(x, w, h, 3, IIO_TYPE_UINT8);
-	x->data = xmalloc(w*h*3);
+	x->data = xmalloc_image_buf(w, h, 3, 1);
 	for (int j = 0; j < h; j+=1)
 	for (int i = 0; i < w*3; i+=1)
 		((uint8_t *)x->data)[j*w*3+i] = data[j*stride+i];
@@ -2412,7 +2431,7 @@ static int read_beheaded_pcm(struct iio_image *x,
 	fprintf(stderr, "%d PCM w h scale = %d %d %g\n", nheader, w, h, scale);
 
 	assert(sizeof(float) == 4);
-	float *data = xmalloc(w * h * 2 * sizeof(float));
+	float *data = xmalloc_image_buf(w, h, 2, sizeof(float));
 	int r = fread(data, sizeof(float), w * h * 2, f);
 	if (r != w * h * 2) return (xfree(data),-7);
 	iio_image_init2d(x, w, h, 2, IIO_TYPE_FLOAT);
@@ -2655,7 +2674,7 @@ static int read_beheaded_pfm(struct iio_image *x,
 	if (!isspace(pick_char_for_sure(f))) return -1;
 	if (3 != fscanf(f, "%d %d\n%g", &w, &h, &scale)) return -2;
 	if (!isspace(pick_char_for_sure(f))) return -3;
-	float *data = xmalloc(w*h*4*pd);
+	float *data = xmalloc_image_buf(w, h, pd, 4);
 	if (1 != fread(data, w*h*4*pd, 1, f)) return (xfree(data),-4);
 
 	iio_image_init2d(x, w, h, 2, IIO_TYPE_FLOAT);
@@ -2670,7 +2689,7 @@ static int read_beheaded_flo(struct iio_image *x,
 	(void)header; (void)nheader;
 	int w = rim_getint(f, false);
 	int h = rim_getint(f, false);
-	float *data = xmalloc(w*h*2*sizeof*data);
+	float *data = xmalloc_image_buf(w, h, 2, sizeof *data);
 	if (1 != fread(data, w*h*4*2, 1, f)) return (xfree(data),-1);
 
 	iio_image_init2d(x, w, h, 2, IIO_TYPE_FLOAT);
@@ -2688,9 +2707,9 @@ static int read_beheaded_juv(struct iio_image *x,
 	int w, h, r = sscanf(buf, "#UV {\n dimx %d dimy %d\n}\n", &w, &h);
 	if (r != 2) return -1;
 	size_t sf = sizeof(float);
-	float *u = xmalloc(w*h*sf); r = fread(u, sf, w*h, f);
+	float *u = xmalloc_image_buf(w, h, 1, sf); r = fread(u, sf, w*h, f);
 	if(r != w*h) return (xfree(u),-2);
-	float *v = xmalloc(w*h*sf); r = fread(v, sf, w*h, f);
+	float *v = xmalloc_image_buf(w, h, 1, sf); r = fread(v, sf, w*h, f);
 	if(r != w*h) return (xfree(u),xfree(v),-2);
 	float *uv = xmalloc(2*w*h*sf);
 	FORI(w*h) uv[2*i] = u[i];
@@ -2718,7 +2737,7 @@ static int read_beheaded_lum12(struct iio_image *x,
 	int h = *(uint32_t*)(header+4);
 	while (nheader++ < 11968)
 		pick_char_for_sure(f);
-	uint16_t *data = xmalloc(w*h*sizeof*data);
+	uint16_t *data = xmalloc_image_buf(w, h, 1, sizeof *data);
 	if (1 != fread(data, w*h*2, 1, f)) return (xfree(data),-1);
 	iio_image_init2d(x, w, h, 1, IIO_TYPE_UINT16);
 	x->data = data;
@@ -2734,7 +2753,7 @@ static int read_beheaded_lum(struct iio_image *x,
 	int h = lum_pickshort(header+6);
 	while (nheader++ < 0xf94)
 		pick_char_for_sure(f);
-	float *data = xmalloc(w*h*sizeof*data);
+	float *data = xmalloc_image_buf(w, h, 1, sizeof *data);
 	if (1 != fread(data, w*h*4, 1, f)) return (xfree(data),-1);
 	switch_4endianness(data, w*h);
 	iio_image_init2d(x, w, h, 1, IIO_TYPE_FLOAT);
@@ -3171,7 +3190,7 @@ static int read_beheaded_vrt(struct iio_image *x,
 	if (!w || !h) return 2;
 	if (cx != 2) return 3;
 	iio_image_init2d(x, w, h, 1, IIO_TYPE_FLOAT);
-	x->data = xmalloc(w * h * sizeof(float));
+	x->data = xmalloc_image_buf(w, h, 1, sizeof(float));
 	float (*xx)[w] = x->data;
 	int pos[4] = {0,0,0,0}, pos_cx = 0, has_fname = 0;
 
@@ -3222,7 +3241,7 @@ static int read_beheaded_ffd(struct iio_image *x,
 	uint32_t h = s[7] + 0x100 * s[6] + 0x10000 * s[5] + 0x1000000 * s[4];
 
 	iio_image_init2d(x, w, h, 4, IIO_TYPE_UINT16);
-	x->data = xmalloc(w * h * 4 * sizeof(uint16_t));
+	x->data = xmalloc_image_buf(w, h, 4, sizeof(uint16_t));
 	uint32_t r = fread(x->data, 2, w*h*4, fin);
 	if (r != w*h*4) return 1;
 	switch_2endianness(x->data, r);
@@ -4278,7 +4297,7 @@ static void iio_write_image_as_asc(const char *filename, struct iio_image *x)
 		int h = x->sizes[1];
 		int pd = x->pixel_dimension;
 		fprintf(f, "%d %d 1 %d\n", w, h, pd);
-		float *t = xmalloc(w*h*pd*sizeof*t);
+		float *t = xmalloc_image_buf(w, h, pd, sizeof *t);
 		break_pixels_float(t, x->data, w*h, pd);
 		for (int i = 0; i < w*h*pd; i++)
 			fprintf(f, "%.9g\n", t[i]);
